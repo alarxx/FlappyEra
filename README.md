@@ -1,5 +1,6 @@
 # FlappyEra
-native android game (bad code).
+
+Native android game. Using native android functions, writing a framework for games like LibGDX, using OpenGL ES
 
 [FlappyEra in Play Market](https://play.google.com/store/apps/details?id=com.retro.androidgames.flappybird)
 
