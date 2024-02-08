@@ -15,7 +15,10 @@ The main fundamental ideas for the framework are taken from the book by Mario Ze
 <img src="https://github.com/Alar-q/FlappyEra/assets/72505048/084d8b48-7f36-48a0-b181-c30c305c58f2" width="200">
 <img src="https://github.com/Alar-q/FlappyEra/assets/72505048/c805e97a-8642-4c22-be80-ab61f7ac98f0" width="200">
 
-https://github.com/Alar-q/FlappyEra/assets/72505048/d5d48cc7-4e4a-422b-abd4-fc54208c4c82
+
+
+https://github.com/Alar-q/FlappyEra/assets/72505048/6f9a8437-26b1-4c9f-9a9b-a8152d62a3a0
+
 
 
 References:
