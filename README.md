@@ -21,7 +21,7 @@ https://github.com/Alar-q/FlappyEra/assets/72505048/6f9a8437-26b1-4c9f-9a9b-a815
 
 
 
-№№ References:
+## References:
 - Zechner, M. (2011). Beginning Android games. Apress : distributed to the book trade worldwide by Springer Science+Business Media.
 - Schildt, H. (2022). Java: The complete reference (Twelfth edition). McGraw Hill.
 - Griffiths, D., & Griffiths, D. (2017). Head first Android development: A brain-friendly guide (2nd edition). O’Reilly Media, Inc.
