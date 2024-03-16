@@ -28,7 +28,9 @@ https://github.com/Alar-q/FlappyEra/assets/72505048/6f9a8437-26b1-4c9f-9a9b-a815
 
 
 ## Memes
+
 (Great people create great things)
+
 <img src="https://github.com/Alar-q/FlappyEra/blob/master/assets/elon_1.jpg" width="200">
 <img src="https://github.com/Alar-q/FlappyEra/blob/master/assets/elon_2.jpg" width="200">
 <img src="https://github.com/Alar-q/FlappyEra/blob/master/assets/steve.jpg" width="200">
