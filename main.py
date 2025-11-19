@@ -41,7 +41,7 @@ async def read_index():
 
 @app.get("/score", response_class=FileResponse)
 async def read_index():
-    return FileResponse("index.html")
+    return FileResponse("score.html")
 
 # --- ---
 

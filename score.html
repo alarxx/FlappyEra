@@ -77,7 +77,8 @@
             try {
                 const resp = await fetch('/api/score?' + q.toString());
 
-                let data = getData(resp);
+                let data = await getData(resp);
+                // console.log(data);
 
                 show(`${resp.ok ? "Ok" : "Error"} GET (${resp.status})`, data);
             }
