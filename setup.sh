@@ -40,7 +40,7 @@ echo "Python .venv activated"
 if [ ! -f requirements.txt ]; then
     # All libraries should be listed in command, but file requirements.txt will be provided source of truth
     pip install fastapi "fastapi[standard]" supabase
-    echo "FastAPI installed"
+    echo "FastAPI and Supabase installed"
     pip freeze > requirements.txt
     echo "Python freeze libraries"
 else

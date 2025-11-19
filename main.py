@@ -37,6 +37,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=FileResponse)
 async def read_index():
+    return FileResponse("flappy.html")
+
+@app.get("/score", response_class=FileResponse)
+async def read_index():
     return FileResponse("index.html")
 
 # --- ---
