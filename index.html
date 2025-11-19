@@ -2,10 +2,89 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Flappy</title>
 </head>
 <body>
-    <h1>Header</h1>
+    <h1>/api/score</h1>
+
+    <div>
+        <input id="nickname" placeholder="nickname">
+        <input id="score" type="number" placeholder="score">
+        <button id="btnCreate">POST /api/score</button>
+    </div>
+
+    <div>
+        <input id="page" type="number" value="1">
+        <input id="pageSize" type="number" value="10">
+        <button id="btnGet">GET /api/score</button>
+    </div>
+
+    <pre id="out"></pre>
+
+    <script>
+        const nickname = document.getElementById('nickname');
+        const score = document.getElementById('score');
+        const page = document.getElementById('page');
+        const pageSize = document.getElementById('pageSize');
+        const out = document.getElementById('out');
+
+        function show(prefix, data) {
+            out.textContent = prefix + '\n' + JSON.stringify(data, null, 2);
+        }
+
+        async function getData(resp){
+            let data;
+            try {
+                data = await resp.json();
+            }
+            catch (e) {
+                data = {
+                    error: 'no json',
+                    raw: await resp.text()
+                };
+            }
+            return data;
+        }
+
+        document.getElementById('btnCreate').onclick = async () => {
+            try {
+                const resp = await fetch('/api/score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        nickname: nickname.value,
+                        score: Number(score.value),
+                    })
+                });
+
+                let data = await getData(resp);
+
+                show(`${resp.ok ? "Ok" : "Error"} GET (${resp.status})`, data);
+            }
+            catch (e) {
+                show('Catched error POST', { message: String(e) });
+            }
+        };
+
+        document.getElementById('btnGet').onclick = async () => {
+            const q = new URLSearchParams({
+                page: String(page.value || 1),
+                page_size: String(pageSize.value || 10),
+            });
+
+            try {
+                const resp = await fetch('/api/score?' + q.toString());
+
+                let data = getData(resp);
+
+                show(`${resp.ok ? "Ok" : "Error"} GET (${resp.status})`, data);
+            }
+            catch (e) {
+                show('JS/network error GET', { message: String(e) });
+            }
+        };
+    </script>
 </body>
 </html>
-
