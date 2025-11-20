@@ -22,690 +22,647 @@
             align-items: center;
         }
 
-        #game-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
         canvas {
-/*             background: #000; */
-/*             image-rendering: pixelated; */
+            background: #000;
+            image-rendering: pixelated;
             display: block;
-/*             border: 1px solid #333; */
             border: none;
             margin: 0;
             padding: 0;
         }
-/*
-        h1 {
-            margin: 0 0 4px 0;
-            font-size: 20px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-        }
-
-        .hint {
-            font-size: 12px;
-            opacity: 0.7;
-        }*/
     </style>
 </head>
 
 <body>
-<div id="game-wrapper">
     <canvas id="game" width="320" height="480"></canvas>
-</div>
 
-<script>
-/* === МИРОВЫЕ НАСТРОЙКИ (как в World/GameScreen) === */
-const WORLD_WIDTH = 10.0;
-const WORLD_HEIGHT = 15.0;
+    <script>
+    /* === World/GameScreen === */
+    const WORLD_WIDTH = 10.0;
+    const WORLD_HEIGHT = 15.0;
 
-// Масштаб: мир -> пиксели
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const SCALE_X = canvas.width / WORLD_WIDTH;
-const SCALE_Y = canvas.height / WORLD_HEIGHT;
+    // Масштаб: мир -> пиксели
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const SCALE_X = canvas.width / WORLD_WIDTH;
+    const SCALE_Y = canvas.height / WORLD_HEIGHT;
 
-// Утилиты для конвертации
-function worldToScreenX(x) { return x * SCALE_X; }
-function worldToScreenY(y) { return canvas.height - y * SCALE_Y; } // y вверх
-function worldToScreenW(w) { return w * SCALE_X; }
-function worldToScreenH(h) { return h * SCALE_Y; }
+    // Утилиты для конвертации
+    function worldToScreenX(x) { return x * SCALE_X; }
+    function worldToScreenY(y) { return canvas.height - y * SCALE_Y; } // y вверх
+    function worldToScreenW(w) { return w * SCALE_X; }
+    function worldToScreenH(h) { return h * SCALE_Y; }
 
-// Простейший Rect
-class Rect {
-    constructor(x, y, w, h) {
-        this.x = x; // center x (как GameObject.position)
-        this.y = y; // center y
-        this.w = w;
-        this.h = h;
-    }
-    get left() { return this.x - this.w / 2; }
-    get right() { return this.x + this.w / 2; }
-    get bottom() { return this.y - this.h / 2; }
-    get top() { return this.y + this.h / 2; }
 
-    intersects(other) {
-        return !(this.right < other.left ||
-                 this.left > other.right ||
-                 this.top < other.bottom ||
-                 this.bottom > other.top);
-    }
+    // GameObject.position
+    class Rect {
+        constructor(x, y, w, h) {
+            this.x = x; // center x
+            this.y = y; // center y
+            this.w = w;
+            this.h = h;
+        }
+        get left() { return this.x - this.w / 2; }
+        get right() { return this.x + this.w / 2; }
+        get bottom() { return this.y - this.h / 2; }
+        get top() { return this.y + this.h / 2; }
 
-    containsPoint(px, py) {
-        return px >= this.left && px <= this.right &&
-               py >= this.bottom && py <= this.top;
-    }
-}
-
-/* === АТЛАС (аналог Assets.backgroundRegion, .down, .columnT, .columnB, .bird, .coin) === */
-// Подгони координаты под свой background.png (см. Assets.java)
-const atlas = new Image();
-atlas.src = '/static/background.png'; // один PNG-атлас
-
-const regions = {
-    // полный фон
-    backgroundRegion: { sx: 0,   sy: 0,   sw: 320, sh: 480 },
-    // земля (DownTown)
-    down:             { sx: 320, sy: 480, sw: 320, sh: 64  },
-
-    // колонны
-    columnT:          { sx: 384, sy: 0,   sw: 64,  sh: 176 },
-    columnB:          { sx: 448, sy: 0,   sw: 64,  sh: 176 },
-
-    // птица и монетка
-    bird:             { sx: 576, sy: 0,   sw: 64,  sh: 64  },
-    coin:             { sx: 576, sy: 64,  sw: 64,  sh: 64  }
-};
-
-function drawRegion(region, x, y, w, h, angleDeg = 0) {
-    const dx = worldToScreenX(x);
-    const dy = worldToScreenY(y);
-    const dw = worldToScreenW(w);
-    const dh = worldToScreenH(h);
-
-    ctx.save();
-    ctx.translate(dx, dy);
-    ctx.rotate(-angleDeg * Math.PI / 180); // в JS угол по часовой, в нашем мире y вверх
-    ctx.drawImage(
-        atlas,
-        region.sx, region.sy, region.sw, region.sh,
-        -dw / 2, -dh / 2, dw, dh
-    );
-    ctx.restore();
-}
-
-/* === Background (как Background.java) === */
-class Background {
-    constructor() {
-        this.W = WORLD_WIDTH;
-        this.H = WORLD_HEIGHT;
-
-        const vel = -1.0;
-
-        this.bc1 = {
-            x: 0,
-            y: this.H / 2,
-            vx: vel
-        };
-        this.bc2 = {
-            x: this.W,
-            y: this.H / 2,
-            vx: vel
-        };
-    }
-
-    update(dt) {
-        const halfW = this.W / 2;
-
-        this.bc1.x += this.bc1.vx * dt;
-        if (this.bc1.x < -halfW) {
-            this.bc1.x = 1.5 * this.W;
+        overlaps(other) {
+            return !(this.right < other.left || // полностью слева
+                    this.left > other.right || // полностью справа
+                    this.top < other.bottom || // полностью снизу
+                    this.bottom > other.top); // полностью сверху
         }
 
-        this.bc2.x += this.bc2.vx * dt;
-        if (this.bc2.x < -halfW) {
-            this.bc2.x = 1.5 * this.W;
+        containsPoint(px, py) { // point inside the rect
+            return px >= this.left && px <= this.right &&
+                py >= this.bottom && py <= this.top;
         }
     }
 
-    render() {
-        drawRegion(regions.backgroundRegion, this.bc2.x, this.bc2.y, this.W + 0.2, this.H);
-        drawRegion(regions.backgroundRegion, this.bc1.x, this.bc1.y, this.W, this.H);
+    const atlas = new Image();
+    atlas.src = '/static/background.png';
+
+    const regions = {
+        backgroundRegion: { sx: 0,   sy: 0,   sw: 320, sh: 480 }, // 480 + 64 = 544
+        down:             { sx: 320, sy: 480, sw: 320, sh: 64  },
+        columnT:          { sx: 384, sy: 0,   sw: 64,  sh: 176 }, // 176 * 2 = 352
+        columnB:          { sx: 448, sy: 0,   sw: 64,  sh: 176 },
+        bird:             { sx: 576, sy: 0,   sw: 64,  sh: 64  },
+        coin:             { sx: 576, sy: 64,  sw: 64,  sh: 64  }
+    };
+
+    function drawRegion(region, x, y, w, h, angleDeg = 0) {
+        const dx = worldToScreenX(x); // координаты центра
+        const dy = worldToScreenY(y);
+        const dw = worldToScreenW(w);
+        const dh = worldToScreenH(h);
+
+        // Без поворота — самый дешёвый путь
+        if (angleDeg === 0) {
+            ctx.drawImage(
+                atlas,
+                region.sx, region.sy, region.sw, region.sh,
+                dx - dw / 2, dy - dh / 2, dw, dh
+            );
+        }
+        else {
+            ctx.save();
+            ctx.translate(dx, dy);
+            ctx.rotate(-angleDeg * Math.PI / 180); // в JS угол по часовой, в нашем мире y вверх
+            // но рисуем относительно левого-верхнего края
+            ctx.drawImage(
+                atlas,
+                region.sx, region.sy, region.sw, region.sh,
+                -dw / 2, -dh / 2, dw, dh
+            );
+            ctx.restore();
+        }
     }
-}
 
-/* === DownTown (земля) аналог DownTown.java === */
-class DownTown {
-    constructor() {
-        this.W = WORLD_WIDTH;
-        this.bc1 = { x: 0, y: 0, vx: -4.5 };
-        this.bc2 = { x: this.W, y: 0, vx: -4.5 };
-    }
+    class Background {
+        static vel = -1.0;
 
-    update(dt) {
-        const halfW = this.W / 2;
+        constructor() {
+            this.bc1 = {
+                x: 0,
+                y: WORLD_HEIGHT / 2,
+            };
+            this.bc2 = {
+                x: WORLD_WIDTH,
+                y: WORLD_HEIGHT / 2,
+            };
 
-        this.bc1.x += this.bc1.vx * dt;
-        if (this.bc1.x < -halfW) {
-            this.bc1.x = 1.5 * this.W;
+            this.halfW = WORLD_WIDTH / 2;
         }
 
-        this.bc2.x += this.bc2.vx * dt;
-        if (this.bc2.x < -halfW) {
-            this.bc2.x = 1.5 * this.W;
-        }
-    }
+        update(dt) {
+            let shift = Background.vel * dt;
 
-    render() {
-        drawRegion(regions.down, this.bc2.x, this.bc2.y, this.W + 0.2, 2);
-        drawRegion(regions.down, this.bc1.x, this.bc1.y, this.W, 2);
-    }
-}
-
-/* === Bird (аналог Bird.java) === */
-class Bird {
-    constructor() {
-        this.WORLD_W = WORLD_WIDTH;
-        this.WORLD_H = WORLD_HEIGHT;
-
-        this.BIRD_WIDTH = 2.0;
-        this.BIRD_HEIGHT = 2.0;
-        this.BIRD_JUMP_VELOCITY = 9.0;
-        this.FALL_VELOCITY = -30.0;
-
-        this.STATE_JUMP = 0;
-        this.STATE_FALL = 1;
-        this.STATE_HIT = 2;
-
-        this.reset();
-    }
-
-    reset() {
-        this.x = this.WORLD_W / 4;
-        this.y = this.WORLD_H / 2;
-        this.vx = 0;
-        this.vy = 0;
-        this.state = this.STATE_FALL;
-
-        // hitbox (как birdR)
-        this.hitbox = new Rect(
-            this.x + 0.1,
-            this.y,
-            this.BIRD_WIDTH / 2 - 0.2,
-            this.BIRD_HEIGHT - 0.2
-        );
-
-        this.im = 0;
-        this.angle = 0;
-    }
-
-    update(dt) {
-        // Низ
-        if (this.y < this.BIRD_HEIGHT / 2 + 1.0) {
-            if (this.state !== this.STATE_HIT) {
-                this.state = this.STATE_HIT;
+            this.bc1.x += shift;
+            this.bc2.x += shift;
+            if (this.bc1.x < -this.halfW) {
+                this.bc1.x = 1.5 * WORLD_WIDTH;
+                this.bc2.x = 0.5 * WORLD_WIDTH;
             }
-        }
-        // Верх
-        if (this.y > this.WORLD_H - this.BIRD_HEIGHT / 2) {
-            if (this.state !== this.STATE_HIT) {
-                this.state = this.STATE_HIT;
+            else if (this.bc2.x < -this.halfW) {
+                this.bc1.x = 0.5 * WORLD_WIDTH;
+                this.bc2.x = 1.5 * WORLD_WIDTH;
             }
         }
 
-        if (this.state === this.STATE_HIT) {
-            // Падение с отскоком влево, как в Java
-            if (this.y > this.BIRD_HEIGHT / 2 + 1.0) {
-                this.vy += this.FALL_VELOCITY * dt;
-                this.x += -1 * dt;
+        render() {
+            drawRegion(regions.backgroundRegion, this.bc2.x, this.bc2.y, WORLD_WIDTH + 0.2, WORLD_HEIGHT);
+            drawRegion(regions.backgroundRegion, this.bc1.x, this.bc1.y, WORLD_WIDTH, WORLD_HEIGHT);
+        }
+    }
+
+    /* === DownTown (земля) аналог DownTown.java === */
+    class DownTown {
+        static WIDTH = WORLD_WIDTH;
+        static HEIGHT = 2; // 64 / 32
+        // Magic numbers
+        static VELOCITY = -4.5;
+
+        constructor() {
+            this.halfW = DownTown.WIDTH / 2;
+
+            this.bc1 = { x: 0, y: 0 };
+            this.bc2 = { x: DownTown.WIDTH, y: 0 };
+        }
+
+        update(dt) {
+            let shift = DownTown.VELOCITY * dt;
+
+            this.bc1.x += shift;
+            this.bc2.x += shift;
+
+            if (this.bc1.x < -this.halfW) {
+                this.bc1.x = 1.5 * DownTown.WIDTH;
+                this.bc2.x = 0.5 * DownTown.WIDTH;
+            }
+            else if (this.bc2.x < -this.halfW) {
+                this.bc1.x = 0.5 * DownTown.WIDTH;
+                this.bc2.x = 1.5 * DownTown.WIDTH;
+            }
+        }
+
+        render() {
+            drawRegion(regions.down, this.bc2.x, this.bc2.y, DownTown.WIDTH + 0.2, 2);
+            drawRegion(regions.down, this.bc1.x, this.bc1.y, DownTown.WIDTH, 2);
+        }
+    }
+
+    class Bird {
+        static BIRD_WIDTH = 2.0;
+        static BIRD_HEIGHT = 2.0;
+        static BIRD_JUMP_VELOCITY = 9.0;
+        static FALL_VELOCITY = -30.0;
+
+        static STATE_JUMP = 0;
+        static STATE_FALL = 1;
+        static STATE_HIT = 2;
+    
+        constructor() {
+            this.reset();
+        }
+
+        reset() {
+            this.x = WORLD_WIDTH / 4;
+            this.y = WORLD_HEIGHT / 2;
+            this.vx = 0;
+            this.vy = 0;
+            this.state = Bird.STATE_FALL;
+
+            // hitbox (как birdR)
+            this.hitbox = new Rect(
+                this.x + 0.1,
+                this.y,
+                Bird.BIRD_WIDTH / 2 - 0.2,
+                Bird.BIRD_HEIGHT - 0.2
+            );
+
+            // this.im = 0;
+            this.angle = 0;
+        }
+
+        hit(){
+            this.state = Bird.STATE_HIT;
+            this.vy = 10;
+        }
+
+        jump() {
+            if (this.state === Bird.STATE_HIT) return;
+            this.vy = Bird.BIRD_JUMP_VELOCITY;
+            this.state = Bird.STATE_JUMP;
+        }
+
+        render() {
+            drawRegion(regions.bird, this.x, this.y, Bird.BIRD_WIDTH, Bird.BIRD_HEIGHT, this.angle);
+        }
+
+        isDead() {
+            return this.state === Bird.STATE_HIT && this.y <= Bird.BIRD_HEIGHT / 2 + 1.0;
+        }
+
+        update(dt) {
+            // Удар об низ
+            if (this.y < Bird.BIRD_HEIGHT / 2 + 1.0) {
+                if (this.state !== Bird.STATE_HIT) {
+                    this.hit();
+                }
+            }
+            // Верх
+            if (this.y > Bird.WORLD_H - Bird.BIRD_HEIGHT / 2) {
+                if (this.state !== Bird.STATE_HIT) {
+                    this.hit();
+                }
+            }
+
+            if (this.state === Bird.STATE_HIT) {
+                // Падение с отскоком влево, как в Java
+                if (this.y > Bird.BIRD_HEIGHT / 2 + 1.0) {
+                    this.vy += Bird.FALL_VELOCITY * dt;
+                    this.x += -1 * dt;
+                    this.y += this.vy * dt;
+                }
+            } else {
+                // Обычное падение
+                this.vy += Bird.FALL_VELOCITY * dt;
                 this.y += this.vy * dt;
             }
-        } else {
-            // Обычное падение
-            this.vy += this.FALL_VELOCITY * dt;
-            this.y += this.vy * dt;
-        }
 
-        // Обновление hitbox
-        this.hitbox.x = this.x + 0.1;
-        this.hitbox.y = this.y;
+            // Обновление hitbox
+            this.hitbox.x = this.x + 0.1;
+            this.hitbox.y = this.y;
 
-        // Анимация угла
-        if (this.state === this.STATE_HIT) {
-            this.angle = 0;
-        } else {
-            if (this.vy < -3) {
-                if (this.state !== this.STATE_FALL) {
-                    this.state = this.STATE_FALL;
-                    this.im = 0;
-                }
-                this.angle = -15;
-                this.im++;
+            // Анимация угла
+            if (this.state === Bird.STATE_HIT) {
+                this.angle = 0;
             } else {
-                if (this.state !== this.STATE_JUMP) {
-                    this.state = this.STATE_JUMP;
-                    this.im = 0;
+                if (this.vy < -3) {
+                    if (this.state !== Bird.STATE_FALL) {
+                        this.state = Bird.STATE_FALL;
+                        // this.im = 0;
+                    }
+                    this.angle = -15;
+                    // this.im++;
+                } else {
+                    if (this.state !== Bird.STATE_JUMP) {
+                        this.state = Bird.STATE_JUMP;
+                        // this.im = 0;
+                    }
+                    this.angle = 15;
+                    // this.im++;
                 }
-                this.angle = 15;
-                this.im++;
             }
         }
+
     }
 
-    jump() {
-        if (this.state === this.STATE_HIT) return;
-        this.vy = this.BIRD_JUMP_VELOCITY;
-        this.state = this.STATE_JUMP;
-    }
+    class ColumnSystem {
+        constructor() {
+            this.W = WORLD_WIDTH;
+            this.H = WORLD_HEIGHT;
 
-    render() {
-        drawRegion(regions.bird, this.x, this.y, this.BIRD_WIDTH, this.BIRD_HEIGHT, this.angle);
-    }
+            this.COLUMN_WIDTH = 2.25;
+            this.COLUMN_HEIGHT = this.H;
+            this.COLUMN_DELTA = 3.75;
+            this.COIN_SIZE = 2.0;
+            this.minVelocity = -6;
+            this.COLUMN_VELOCITY = DownTown.VELOCITY;
 
-    isDead() {
-        return this.state === this.STATE_HIT && this.y <= this.BIRD_HEIGHT / 2 + 1.0;
-    }
-}
-
-/* === Column + Coins (приближённо к Column.java) === */
-class ColumnSystem {
-    constructor() {
-        this.W = WORLD_WIDTH;
-        this.H = WORLD_HEIGHT;
-
-        this.COLUMN_WIDTH = 2.5;
-        this.COLUMN_HEIGHT = this.H;
-        this.COLUMN_DELTA = 3.75;
-        this.COIN_SIZE = 2.0;
-
-        this.COLUMN_VELOCITY = -4.5;
-        this.minVelocity = -7.0;
-
-        this.scoreColumnBoolean = true;
-
-        // Две пары колонн
-        this.reset();
-    }
-
-    randY(prevY = null) {
-        // r.nextFloat()*(WORLD_HEIGHT - COLUMN_DELTA)+COLUMN_WIDTH/2;
-        let y = Math.random() * (this.H - this.COLUMN_DELTA) + this.COLUMN_WIDTH / 2;
-
-        if (y < 4.5) y = 4.5;
-        if (y > this.H - this.COLUMN_DELTA - 1.0) y = this.H - this.COLUMN_DELTA - 1.0;
-
-        if (prevY !== null && Math.abs(y - prevY) > 5) {
-            while (Math.abs(y - prevY) > 5) {
-                if (y - prevY > 0) y -= 1.0;
-                else y += 1.0;
-            }
-        }
-        return y;
-    }
-
-    reset() {
-        this.COLUMN_VELOCITY = -4.5;
-        this.scoreColumnBoolean = true;
-
-        // первая
-        this.y1 = this.randY();
-        this.coin1b = true;
-        const x1 = this.W + this.COLUMN_WIDTH / 2;
-
-        this.columnT1 = new Rect(
-            x1,
-            this.y1 + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2,
-            this.COLUMN_WIDTH,
-            this.COLUMN_HEIGHT
-        );
-        this.columnB1 = new Rect(
-            x1,
-            this.y1 - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2,
-            this.COLUMN_WIDTH,
-            this.COLUMN_HEIGHT
-        );
-        this.coin1 = new Rect(x1, this.y1, this.COIN_SIZE, this.COIN_SIZE);
-
-        // вторая
-        this.y2 = this.randY(this.y1);
-        this.coin2b = true;
-        const x2 = x1 + this.W / 2 + this.COLUMN_WIDTH;
-
-        this.columnT2 = new Rect(
-            x2,
-            this.y2 + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2,
-            this.COLUMN_WIDTH,
-            this.COLUMN_HEIGHT
-        );
-        this.columnB2 = new Rect(
-            x2,
-            this.y2 - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2,
-            this.COLUMN_WIDTH,
-            this.COLUMN_HEIGHT
-        );
-        this.coin2 = new Rect(x2, this.y2, this.COIN_SIZE, this.COIN_SIZE);
-    }
-
-    update(dt, worldWidth) {
-        const vx = this.COLUMN_VELOCITY * dt;
-
-        // первая пара
-        if (this.columnT1.x > -this.COLUMN_WIDTH / 2) {
-            this.columnT1.x += vx;
-            this.columnB1.x += vx;
-            this.coin1.x += vx;
-        } else {
-            // ускорение сложности
-            if (this.COLUMN_VELOCITY > this.minVelocity) {
-                this.COLUMN_VELOCITY -= 0.005;
-            }
-            this.scoreColumnBoolean = true;
-            this.coin1b = true;
-            this.y1 = this.randY(this.y2);
-            const x = worldWidth + this.COLUMN_WIDTH / 2;
-            this.columnT1.x = x;
-            this.columnT1.y = this.y1 + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2;
-            this.columnB1.x = x;
-            this.columnB1.y = this.y1 - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2;
-            this.coin1.x = x;
-            this.coin1.y = this.y1;
+            this.columns = []; // массив пар колонн
+            this.reset();
         }
 
-        // вторая пара
-        if (this.columnT2.x > -this.COLUMN_WIDTH / 2) {
-            this.columnT2.x += vx;
-            this.columnB2.x += vx;
-            this.coin2.x += vx;
-        } else {
-            if (this.COLUMN_VELOCITY > this.minVelocity) {
-                this.COLUMN_VELOCITY -= 0.005;
-            }
-            this.scoreColumnBoolean = true;
-            this.coin2b = true;
-            this.y2 = this.randY(this.y1);
-            const x = worldWidth + this.COLUMN_WIDTH / 2;
-            this.columnT2.x = x;
-            this.columnT2.y = this.y2 + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2;
-            this.columnB2.x = x;
-            this.columnB2.y = this.y2 - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2;
-            this.coin2.x = x;
-            this.coin2.y = this.y2;
-        }
-    }
+        randY(prevY = null) {
+            let y = Math.random() * (this.H - this.COLUMN_DELTA) + this.COLUMN_WIDTH / 2;
 
-    render() {
-        // coin сначала, чтобы трубы были поверх или наоборот — как хочешь
-        if (this.coin1b) {
-            drawRegion(regions.coin, this.coin1.x, this.coin1.y, this.COIN_SIZE, this.COIN_SIZE);
-        }
-        if (this.coin2b) {
-            drawRegion(regions.coin, this.coin2.x, this.coin2.y, this.COIN_SIZE, this.COIN_SIZE);
-        }
-
-        drawRegion(regions.columnT, this.columnT1.x, this.columnT1.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
-        drawRegion(regions.columnB, this.columnB1.x, this.columnB1.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
-        drawRegion(regions.columnT, this.columnT2.x, this.columnT2.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
-        drawRegion(regions.columnB, this.columnB2.x, this.columnB2.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
-    }
-
-    // Аналог World.update() — точка в центре прохода
-    checkScoreAndCoins(birdRect) {
-        let gainedScore = 0;
-        let gainedCoins = 0;
-
-        const gap1x = this.columnT1.x;
-        const gap1y = this.y1; // центр прохода
-        if (this.scoreColumnBoolean && birdRect.containsPoint(gap1x, gap1y)) {
-            if (this.coin1b) {
-                this.coin1b = false;
-                gainedScore += 1;
-                gainedCoins += 1;
-            }
-            this.scoreColumnBoolean = false;
-        }
-
-        const gap2x = this.columnT2.x;
-        const gap2y = this.y2;
-        if (this.scoreColumnBoolean && birdRect.containsPoint(gap2x, gap2y)) {
-            if (this.coin2b) {
-                this.coin2b = false;
-                gainedScore += 1;
-                gainedCoins += 1;
-            }
-            this.scoreColumnBoolean = false;
-        }
-
-        return { gainedScore, gainedCoins };
-    }
-
-    // столкновения
-    collides(birdRect) {
-        return birdRect.intersects(this.columnT1) ||
-               birdRect.intersects(this.columnB1) ||
-               birdRect.intersects(this.columnT2) ||
-               birdRect.intersects(this.columnB2);
-    }
-}
-
-/* === World (аналог World.java + GameScreen) === */
-class WorldGame {
-    constructor() {
-        this.background = new Background();
-        this.downTown = new DownTown();
-        this.bird = new Bird();
-        this.columns = new ColumnSystem();
-
-        this.score = 0;
-        this.coinsSession = 0;
-
-        this.highscore = parseInt(localStorage.getItem('flappy_highscore') || '0', 10);
-        this.totalCoins = parseInt(localStorage.getItem('flappy_coins') || '0', 10);
-
-        this.gameState = 'menu'; // 'menu' | 'playing' | 'gameover'
-    }
-
-    resetToMenu() {
-        this.bird.reset();
-        this.columns.reset();
-        this.score = 0;
-        this.coinsSession = 0;
-        this.gameState = 'menu';
-    }
-
-    startGame() {
-        this.bird.reset();
-        this.columns.reset();
-        this.score = 0;
-        this.coinsSession = 0;
-        this.gameState = 'playing';
-    }
-
-    update(dt) {
-        if (dt > 0.05) dt = 0.05;
-
-        if (this.gameState === 'menu') {
-            this.background.update(dt);
-            this.downTown.update(dt);
-            this.bird.state = this.bird.STATE_HIT; // как в MainMenuScreen
-            return;
-        }
-
-        if (this.gameState === 'playing') {
-            this.bird.update(dt);
-            this.background.update(dt);
-            this.downTown.update(dt);
-            this.columns.update(dt, WORLD_WIDTH + this.columns.COLUMN_WIDTH);
-
-            // чек поинты/монетки
-            const { gainedScore, gainedCoins } = this.columns.checkScoreAndCoins(this.bird.hitbox);
-            if (gainedScore > 0) {
-                this.score += gainedScore;
-                this.coinsSession += gainedCoins;
-                // тут можно проиграть звук coinS
+            if (y < 4.5) y = 4.5;
+            if (y > this.H - this.COLUMN_DELTA - 1.0) {
+                y = this.H - this.COLUMN_DELTA - 1.0;
             }
 
-            // пересечение с колоннами
-            if (this.columns.collides(this.bird.hitbox)) {
-                if (this.bird.state !== this.bird.STATE_HIT) {
-                    this.bird.state = this.bird.STATE_HIT;
-                    this.bird.vy = 0;
-                    // тут можно проиграть звук sasi
+            if (prevY !== null && Math.abs(y - prevY) > 5) {
+                while (Math.abs(y - prevY) > 5) {
+                    y += (y > prevY) ? -1.0 : 1.0;
                 }
             }
 
-            // если окончательно упал на землю → game over
-            if (this.bird.isDead()) {
-                this.gameOver();
+            return y;
+        }
+
+        makeColumn(x, y) {
+            return {
+                yCenter: y,
+                scored: false,  // этот проход уже засчитан?
+                coinAlive: true,
+                top: new Rect(
+                    x,
+                    y + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2,
+                    this.COLUMN_WIDTH,
+                    this.COLUMN_HEIGHT
+                ),
+                bottom: new Rect(
+                    x,
+                    y - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2,
+                    this.COLUMN_WIDTH,
+                    this.COLUMN_HEIGHT
+                ),
+                coin: new Rect(x, y, this.COIN_SIZE, this.COIN_SIZE),
+            };
+        }
+
+        reset() {
+            this.COLUMN_VELOCITY = DownTown.VELOCITY;
+            this.columns.length = 0;
+
+            const y1 = this.randY();
+            const x1 = this.W + this.COLUMN_WIDTH / 2;
+            this.columns.push(this.makeColumn(x1, y1));
+
+            const y2 = this.randY(y1);
+            const x2 = x1 + this.W / 2 + this.COLUMN_WIDTH;
+            this.columns.push(this.makeColumn(x2, y2));
+        }
+
+        update(dt) {
+            const vx = this.COLUMN_VELOCITY * dt;
+
+            for (const col of this.columns) {
+                if (col.top.x > -this.COLUMN_WIDTH / 2) {
+                    col.top.x += vx;
+                    col.bottom.x += vx;
+                    col.coin.x += vx;
+                } else {
+                    if (this.COLUMN_VELOCITY > this.minVelocity) {
+                        this.COLUMN_VELOCITY -= 0.005;
+                    }
+
+                    const prevY = col.yCenter;
+                    col.yCenter = this.randY(prevY);
+
+                    // WORLD_WIDTH + this.columns.COLUMN_WIDTH
+                    const x = this.W + 1.5 * this.COLUMN_WIDTH;
+
+                    col.scored = false;
+                    col.coinAlive = true;
+
+                    col.top.x = x;
+                    col.top.y = col.yCenter + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2;
+
+                    col.bottom.x = x;
+                    col.bottom.y = col.yCenter - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2;
+
+                    col.coin.x = x;
+                    col.coin.y = col.yCenter;
+                }
             }
         }
 
-        if (this.gameState === 'gameover') {
-            // даём птичке падать, пока не ляжет
-            this.bird.update(dt);
-        }
-    }
-
-    gameOver() {
-        // highscore
-        if (this.score > this.highscore) {
-            this.highscore = this.score;
-            localStorage.setItem('flappy_highscore', String(this.highscore));
-        }
-
-        // coins
-        this.totalCoins += this.coinsSession;
-        localStorage.setItem('flappy_coins', String(this.totalCoins));
-
-        this.gameState = 'gameover';
-    }
-
-    onTap() {
-        if (this.gameState === 'menu') {
-            this.startGame();
-        } else if (this.gameState === 'playing') {
-            this.bird.jump();
-            // touchSound тут
-        } else if (this.gameState === 'gameover') {
-            // если упал на землю → в меню
-            if (this.bird.isDead()) {
-                this.resetToMenu();
-            } else {
-                // ещё в полёте — тоже можно подпрыгнуть, но классика: ждём пока упадёт
+        render() {
+            for (const col of this.columns) {
+                if (col.coinAlive) {
+                    drawRegion(regions.coin, col.coin.x, col.coin.y, this.COIN_SIZE, this.COIN_SIZE);
+                }
+                drawRegion(regions.columnT, col.top.x, col.top.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
+                drawRegion(regions.columnB, col.bottom.x, col.bottom.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
             }
         }
-    }
 
-    render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        checkScoreAndCoins(birdRect) {
+            let gainedScore = 0;
+            let gainedCoins = 0;
 
-        // фон + земля
-        this.background.render();
-        this.downTown.render();
+            for (const col of this.columns) {
+                const gapx = col.top.x;
+                const gapy = col.yCenter;
 
-        // трубы + монеты
-        this.columns.render();
-
-        // птица
-        this.bird.render();
-
-        // UI
-        ctx.save();
-        ctx.font = '20px system-ui';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = '#ffffff';
-
-        // score
-        ctx.fillText(String(this.score), canvas.width - 16, 8);
-
-        // coins
-        ctx.textAlign = 'left';
-        ctx.fillText(String(this.totalCoins + this.coinsSession), 32, 8);
-        // нарисуем иконку монеты
-        drawRegion(regions.coin, 1, WORLD_HEIGHT - 1, 1.5, 1.5);
-
-        // подсказки/надписи
-        ctx.textAlign = 'center';
-
-        if (this.gameState === 'menu') {
-            ctx.font = '24px system-ui';
-            ctx.fillText('tap to start', canvas.width / 2, canvas.height * 0.6);
-
-            ctx.font = '16px system-ui';
-            ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
+                if (!col.scored && birdRect.containsPoint(gapx, gapy)) {
+                    col.scored = true;
+                    if (col.coinAlive) {
+                        col.coinAlive = false;
+                        gainedScore += 1;
+                        gainedCoins += 1;
+                    }
+                }
+            }
+            return { gainedScore, gainedCoins };
         }
 
-        if (this.gameState === 'gameover') {
-            ctx.font = '28px system-ui';
-            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.45);
-
-            ctx.font = '16px system-ui';
-            ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.55);
-            ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.62);
-            ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.7);
+        collides(birdRect) {
+            for (const col of this.columns) {
+                if (birdRect.overlaps(col.top) || birdRect.overlaps(col.bottom)) {
+                    return true;
+                }
+            }
+            return false;
+        }
         }
 
-        ctx.restore();
+
+    /* === World (аналог World.java + GameScreen) === */
+    class WorldGame {
+        constructor() {
+            this.background = new Background();
+            this.downTown = new DownTown();
+            this.bird = new Bird();
+            this.columns = new ColumnSystem();
+
+            this.highscore = parseInt(localStorage.getItem('flappy_highscore') || '0', 10);
+            this.totalCoins = parseInt(localStorage.getItem('flappy_coins') || '0', 10);
+
+            this.resetToMenu();
+        }
+
+
+        reset(state){
+            // state = 'menu' | 'playing' | 'gameover'
+            this.bird.reset();
+            this.columns.reset();
+            this.score = 0;
+            this.gameState = state;
+        }
+        resetToMenu() { this.reset('menu'); }
+        startGame() { this.reset('playing'); }
+
+
+
+        update(dt) {
+            // if (dt > 0.05) dt = 0.05;
+
+            if (this.gameState === 'menu') {
+                this.background.update(dt);
+                this.downTown.update(dt);
+                this.bird.state = Bird.STATE_HIT; // как в MainMenuScreen
+            }
+
+            else if (this.gameState === 'playing') {
+                this.bird.update(dt);
+                if(this.bird.state != Bird.STATE_HIT){
+                    this.background.update(dt);
+                    this.downTown.update(dt);
+                    this.columns.update(dt);
+                }
+
+                // чек поинты/монетки
+                const { gainedScore, gainedCoins } = this.columns.checkScoreAndCoins(this.bird.hitbox);
+                if (gainedScore > 0) {
+                    this.score += gainedScore;
+                    this.totalCoins += gainedCoins;
+
+                    // тут можно проиграть звук coinS
+                }
+
+                // пересечение с колоннами
+                if (this.columns.collides(this.bird.hitbox)) {
+                    if (this.bird.state !== Bird.STATE_HIT) {
+                        this.bird.hit();
+                        // тут можно проиграть звук sasi
+                    }
+                }
+
+                // если окончательно упал на землю → game over
+                if (this.bird.isDead()) {
+                    this.gameOver();
+                }
+            }
+
+            else if (this.gameState === 'gameover') {
+                // даём птичке падать, пока не ляжет
+                this.bird.update(dt);
+            }
+        }
+
+        gameOver() {
+            // highscore
+            if (this.score > this.highscore) {
+                this.highscore = this.score;
+                localStorage.setItem('flappy_highscore', String(this.highscore));
+            }
+
+            // coins
+            localStorage.setItem('flappy_coins', String(this.totalCoins));
+
+            this.gameState = 'gameover';
+        }
+
+        onTap() {
+            if (this.gameState === 'menu') {
+                this.startGame();
+            } else if (this.gameState === 'playing') {
+                this.bird.jump();
+                // touchSound тут
+            } else if (this.gameState === 'gameover') {
+                // если упал на землю → в меню
+                if (this.bird.isDead()) {
+                    this.resetToMenu();
+                } else {
+                    // ещё в полёте — тоже можно подпрыгнуть, но классика: ждём пока упадёт
+                }
+            }
+        }
+
+        render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // фон + земля
+            this.background.render();
+
+            // трубы + монеты
+            this.columns.render();
+
+            this.downTown.render();
+
+            // птица
+            this.bird.render();
+
+            // UI
+            ctx.save();
+            ctx.font = '20px system-ui';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#ffffff';
+
+            // score
+            ctx.fillText(String(this.score), canvas.width - 16, 8);
+
+            // coins
+            ctx.textAlign = 'left';
+            ctx.fillText(String(this.totalCoins), 32, 8);
+            // нарисуем иконку монеты
+            drawRegion(regions.coin, 1, WORLD_HEIGHT - 1, 1.5, 1.5);
+
+            // подсказки/надписи
+            ctx.textAlign = 'center';
+
+            if (this.gameState === 'menu') {
+                ctx.font = '24px system-ui';
+                ctx.fillText('tap to start', canvas.width / 2, canvas.height * 0.6);
+
+                ctx.font = '16px system-ui';
+                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
+            }
+
+            if (this.gameState === 'gameover') {
+                ctx.font = '28px system-ui';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.45);
+
+                ctx.font = '16px system-ui';
+                ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.55);
+                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.62);
+                ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.7);
+            }
+
+            ctx.restore();
+        }
     }
-}
 
-/* === Главный цикл === */
-const world = new WorldGame();
 
-let lastTime = performance.now();
+    // --- Main Loop ---
 
-function loop(time) {
-    const dt = (time - lastTime) / 1000;
-    lastTime = time;
+    const world = new WorldGame();
 
-    world.update(dt);
-    world.render();
+    let lastTime = performance.now(); // microseconds
 
-    requestAnimationFrame(loop);
-}
+    function loop(time) {
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
 
-atlas.onload = () => {
-    world.resetToMenu();
-    requestAnimationFrame(loop);
-};
+        world.update(dt);
+        world.render();
 
-/* === Ввод (аналог TouchToWorld.touch) === */
-function onTapEvent(e) {
-    e.preventDefault();
-    world.onTap();
-}
-
-canvas.addEventListener('mousedown', onTapEvent);
-canvas.addEventListener('touchstart', onTapEvent, { passive: false });
-
-function resizeCanvas() {
-    const aspect = 320 / 480; // твои оригинальные размеры
-
-    let w = window.innerWidth;
-    let h = window.innerHeight;
-
-    // реальная пропорция окна
-    let winAspect = w / h;
-
-    if (winAspect > aspect) {
-        // экран слишком широкий
-        w = h * aspect;
-    } else {
-        // экран слишком высокий
-        h = w / aspect;
+        requestAnimationFrame(loop); // looping
     }
 
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
-}
+    atlas.onload = () => {
+        world.resetToMenu();
+        requestAnimationFrame(loop); // start loop
+    };
 
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
+    function onTapEvent(e) {
+        e.preventDefault();
+        world.onTap();
+    }
+    canvas.addEventListener('mousedown', onTapEvent); // desktop
+    canvas.addEventListener('touchstart', onTapEvent, { passive: false }); // mobile
 
-</script>
+    // ---
+
+
+    // --- Canvas Size ---
+
+    const GAME_WIDTH = 320;
+    const GAME_HEIGHT = 480 + 64;
+    const GAME_ASPECT = GAME_WIDTH / GAME_HEIGHT; // твои оригинальные размеры
+
+    function resizeCanvas() {
+        let iw = window.innerWidth;
+        let ih = window.innerHeight;
+
+        // real proportion
+        let winAspect = iw / ih;
+
+        if (winAspect > GAME_ASPECT) {
+            // экран слишком широкий
+            iw = ih * GAME_ASPECT;
+        } else {
+            // экран слишком высокий
+            ih = iw / GAME_ASPECT;
+        }
+
+        canvas.style.width = iw + "px";
+        canvas.style.height = ih + "px";
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+
+    resizeCanvas();
+
+    // ---
+
+
+    </script>
 </body>
 </html>
