@@ -518,8 +518,8 @@
                 if (this.state !== Bird.STATE_HIT) {
                     this.state = Bird.STATE_HIT;
                     this.vy = s * 10;
-                    failSound.play().catch(err => console.log("Tap blocked:", err));
-                    failSound.currentTime = 0;
+                    // failSound.play().catch(err => console.log("Tap blocked:", err));
+                    // failSound.currentTime = 0;
                 }
             }
 
@@ -927,8 +927,8 @@
         function onTapEvent(e) {
             e.preventDefault();
             initAudio();
-            playTap();
-            ensureBgmPlaying();
+            // playTap();
+            // ensureBgmPlaying();
             world.onTap();
             updateMenuButton();
         }
@@ -1052,7 +1052,7 @@ function initAudio() {
     coinSound.volume = 0.7;
     coinSound.load();
 
-    bgm.play().catch(err => console.log("BGM play blocked:", err));
+    // bgm.play().catch(err => console.log("BGM play blocked:", err));
 }
 
 function playTap() {
@@ -1066,7 +1066,7 @@ function playTap() {
 function ensureBgmPlaying() {
     if (!bgm) return;
     if (bgm.paused) {
-        bgm.play().catch(err => console.log("BGM play blocked:", err));
+        // bgm.play().catch(err => console.log("BGM play blocked:", err));
     }
 }
 
