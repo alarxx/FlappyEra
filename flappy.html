@@ -202,6 +202,7 @@
 
 
     <script>
+
         /* === World/GameScreen === */
         const WORLD_WIDTH = 10.0;
         const WORLD_HEIGHT = 15.0;
@@ -514,8 +515,12 @@
             }
 
             hit(s = 1){
-                this.state = Bird.STATE_HIT;
-                this.vy = s * 10;
+                if (this.state !== Bird.STATE_HIT) {
+                    this.state = Bird.STATE_HIT;
+                    this.vy = s * 10;
+                    failSound.play().catch(err => console.log("Tap blocked:", err));
+                    failSound.currentTime = 0;
+                }
             }
 
             jump() {
@@ -704,6 +709,8 @@
                         if (col.coinAlive) {
                             col.coinAlive = false;
                             gainedScore += 1;
+                            coinSound.play().catch(err => console.log("Tap blocked:", err));
+                            coinSound.currentTime = 0;
                         }
                     }
                 }
@@ -919,6 +926,8 @@
 
         function onTapEvent(e) {
             e.preventDefault();
+            initAudio();
+            playTap();
             world.onTap();
             updateMenuButton();
         }
@@ -1007,6 +1016,46 @@
                 console.error('Submit highscore error', e);
             }
         }
+
+let bgm = null;
+let tapSound = null;
+let failSound = null;
+let coinSound = null;
+let audioStarted = false;
+
+function initAudio() {
+    if (audioStarted) return;
+    audioStarted = true;
+
+    bgm = new Audio("/static/kalinka.mp3");
+    bgm.loop = true;
+    bgm.volume = 0.4;
+
+    tapSound = new Audio("/static/jump.ogg");
+    tapSound.preload = "auto";
+    tapSound.volume = 0.7;
+    tapSound.load();
+
+    failSound = new Audio("/static/sasi.ogg");
+    failSound.preload = "auto";
+    failSound.volume = 0.1;
+    failSound.load();
+
+    coinSound = new Audio("/static/coin.ogg");
+    coinSound.preload = "auto";
+    coinSound.volume = 0.7;
+    coinSound.load();
+
+    bgm.play().catch(err => console.log("BGM play blocked:", err));
+}
+
+function playTap() {
+    if (!tapSound) return; // если не инициализировано
+    // tapSound.currentTime = 0;
+    let click = new Audio("/static/jump.ogg");
+    click.volume = 0.7;
+    click.play().catch(err => console.log("Tap blocked:", err));
+}
 
     </script>
 </body>
