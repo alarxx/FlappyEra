@@ -867,6 +867,9 @@
 
                     ctx.font = '16px PixelFont';
                     ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
+
+                    ctx.font = '12px PixelFont';
+                    ctx.fillText(playerName, canvas.width / 2, canvas.height * 0.88);
                 }
 
                 if (this.gameState === 'gameover') {
