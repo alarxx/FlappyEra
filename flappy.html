@@ -928,6 +928,7 @@
             e.preventDefault();
             initAudio();
             playTap();
+            ensureBgmPlaying();
             world.onTap();
             updateMenuButton();
         }
@@ -1019,6 +1020,11 @@
 
 let bgm = null;
 let tapSound = null;
+
+const tapPool = [];
+let tapIndex = 0;
+
+
 let failSound = null;
 let coinSound = null;
 let audioStarted = false;
@@ -1055,6 +1061,13 @@ function playTap() {
     let click = new Audio("/static/jump.ogg");
     click.volume = 0.7;
     click.play().catch(err => console.log("Tap blocked:", err));
+}
+
+function ensureBgmPlaying() {
+    if (!bgm) return;
+    if (bgm.paused) {
+        bgm.play().catch(err => console.log("BGM play blocked:", err));
+    }
 }
 
     </script>
