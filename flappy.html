@@ -15,7 +15,6 @@
             padding: 0;
             background: #000;
             color: #fff;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             height: 100%;
             display: flex;
             justify-content: center;
@@ -226,9 +225,9 @@
             this.angle = 0;
         }
 
-        hit(){
+        hit(s = 1){
             this.state = Bird.STATE_HIT;
-            this.vy = 10;
+            this.vy = s * 10;
         }
 
         jump() {
@@ -253,7 +252,7 @@
                 }
             }
             // Верх
-            if (this.y > Bird.WORLD_H - Bird.BIRD_HEIGHT / 2) {
+            if (this.y > WORLD_HEIGHT - Bird.BIRD_HEIGHT / 2) {
                 if (this.state !== Bird.STATE_HIT) {
                     this.hit();
                 }
@@ -301,27 +300,36 @@
     }
 
     class ColumnSystem {
+        static COLUMN_WIDTH = 2.25;
+        static COLUMN_HEIGHT = WORLD_HEIGHT;
+        static COIN_SIZE = 2.0;
+        static COLUMN_DELTA = 3.75;
+        static MIN_VELOCITY = -6;
+
         constructor() {
-            this.W = WORLD_WIDTH;
-            this.H = WORLD_HEIGHT;
-
-            this.COLUMN_WIDTH = 2.25;
-            this.COLUMN_HEIGHT = this.H;
-            this.COLUMN_DELTA = 3.75;
-            this.COIN_SIZE = 2.0;
-            this.minVelocity = -6;
-            this.COLUMN_VELOCITY = DownTown.VELOCITY;
-
-            this.columns = []; // массив пар колонн
             this.reset();
         }
 
+        reset() {
+            this.velocity = DownTown.VELOCITY;
+            this.columns = []; // 2 columns
+
+            const y1 = this.randY();
+            const x1 = WORLD_WIDTH + ColumnSystem.COLUMN_WIDTH / 2;
+            this.columns.push(this.makeColumn(x1, y1));
+
+            const y2 = this.randY(y1);
+            const x2 = x1 + WORLD_WIDTH / 2 + ColumnSystem.COLUMN_WIDTH;
+            this.columns.push(this.makeColumn(x2, y2));
+        }
+
         randY(prevY = null) {
-            let y = Math.random() * (this.H - this.COLUMN_DELTA) + this.COLUMN_WIDTH / 2;
+            // not 100% correct
+            let y = DownTown.HEIGHT + ColumnSystem.COLUMN_DELTA / 2 + Math.random() * (WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - DownTown.HEIGHT);
 
             if (y < 4.5) y = 4.5;
-            if (y > this.H - this.COLUMN_DELTA - 1.0) {
-                y = this.H - this.COLUMN_DELTA - 1.0;
+            if (y > WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0) {
+                y = WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0;
             }
 
             if (prevY !== null && Math.abs(y - prevY) > 5) {
@@ -340,60 +348,45 @@
                 coinAlive: true,
                 top: new Rect(
                     x,
-                    y + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2,
-                    this.COLUMN_WIDTH,
-                    this.COLUMN_HEIGHT
+                    y + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2,
+                    ColumnSystem.COLUMN_WIDTH,
+                    ColumnSystem.COLUMN_HEIGHT
                 ),
                 bottom: new Rect(
                     x,
-                    y - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2,
-                    this.COLUMN_WIDTH,
-                    this.COLUMN_HEIGHT
+                    y - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2,
+                    ColumnSystem.COLUMN_WIDTH,
+                    ColumnSystem.COLUMN_HEIGHT
                 ),
-                coin: new Rect(x, y, this.COIN_SIZE, this.COIN_SIZE),
+                coin: new Rect(x, y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE),
             };
         }
 
-        reset() {
-            this.COLUMN_VELOCITY = DownTown.VELOCITY;
-            this.columns.length = 0;
-
-            const y1 = this.randY();
-            const x1 = this.W + this.COLUMN_WIDTH / 2;
-            this.columns.push(this.makeColumn(x1, y1));
-
-            const y2 = this.randY(y1);
-            const x2 = x1 + this.W / 2 + this.COLUMN_WIDTH;
-            this.columns.push(this.makeColumn(x2, y2));
-        }
-
         update(dt) {
-            const vx = this.COLUMN_VELOCITY * dt;
+            const shift = this.velocity * dt;
 
             for (const col of this.columns) {
-                if (col.top.x > -this.COLUMN_WIDTH / 2) {
-                    col.top.x += vx;
-                    col.bottom.x += vx;
-                    col.coin.x += vx;
+                if (col.top.x > -ColumnSystem.COLUMN_WIDTH / 2) {
+                    col.top.x += shift;
+                    col.bottom.x += shift;
+                    col.coin.x += shift;
                 } else {
-                    if (this.COLUMN_VELOCITY > this.minVelocity) {
-                        this.COLUMN_VELOCITY -= 0.005;
+                    if (this.velocity > ColumnSystem.MIN_VELOCITY) {
+                        this.velocity -= 0.005;
                     }
 
-                    const prevY = col.yCenter;
-                    col.yCenter = this.randY(prevY);
+                    col.yCenter = this.randY(col.yCenter);
 
-                    // WORLD_WIDTH + this.columns.COLUMN_WIDTH
-                    const x = this.W + 1.5 * this.COLUMN_WIDTH;
+                    const x = WORLD_WIDTH + 1.5 * ColumnSystem.COLUMN_WIDTH;
 
                     col.scored = false;
                     col.coinAlive = true;
 
                     col.top.x = x;
-                    col.top.y = col.yCenter + this.COLUMN_HEIGHT / 2 + this.COLUMN_DELTA / 2;
+                    col.top.y = col.yCenter + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2;
 
                     col.bottom.x = x;
-                    col.bottom.y = col.yCenter - this.COLUMN_HEIGHT / 2 - this.COLUMN_DELTA / 2;
+                    col.bottom.y = col.yCenter - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2;
 
                     col.coin.x = x;
                     col.coin.y = col.yCenter;
@@ -404,16 +397,15 @@
         render() {
             for (const col of this.columns) {
                 if (col.coinAlive) {
-                    drawRegion(regions.coin, col.coin.x, col.coin.y, this.COIN_SIZE, this.COIN_SIZE);
+                    drawRegion(regions.coin, col.coin.x, col.coin.y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE);
                 }
-                drawRegion(regions.columnT, col.top.x, col.top.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
-                drawRegion(regions.columnB, col.bottom.x, col.bottom.y, this.COLUMN_WIDTH, this.COLUMN_HEIGHT);
+                drawRegion(regions.columnT, col.top.x, col.top.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
+                drawRegion(regions.columnB, col.bottom.x, col.bottom.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
             }
         }
 
         checkScoreAndCoins(birdRect) {
             let gainedScore = 0;
-            let gainedCoins = 0;
 
             for (const col of this.columns) {
                 const gapx = col.top.x;
@@ -424,11 +416,10 @@
                     if (col.coinAlive) {
                         col.coinAlive = false;
                         gainedScore += 1;
-                        gainedCoins += 1;
                     }
                 }
             }
-            return { gainedScore, gainedCoins };
+            return gainedScore
         }
 
         collides(birdRect) {
@@ -439,10 +430,10 @@
             }
             return false;
         }
-        }
+    }
 
 
-    /* === World (аналог World.java + GameScreen) === */
+    /* --- World/GameScreen --- */
     class WorldGame {
         constructor() {
             this.background = new Background();
@@ -487,10 +478,10 @@
                 }
 
                 // чек поинты/монетки
-                const { gainedScore, gainedCoins } = this.columns.checkScoreAndCoins(this.bird.hitbox);
+                const gainedScore = this.columns.checkScoreAndCoins(this.bird.hitbox);
                 if (gainedScore > 0) {
                     this.score += gainedScore;
-                    this.totalCoins += gainedCoins;
+                    this.totalCoins += gainedScore;
 
                     // тут можно проиграть звук coinS
                 }
@@ -560,17 +551,17 @@
 
             // UI
             ctx.save();
-            ctx.font = '20px system-ui';
+            ctx.font = '20px PixelFont';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#000000';
 
             // score
             ctx.fillText(String(this.score), canvas.width - 16, 8);
 
             // coins
             ctx.textAlign = 'left';
-            ctx.fillText(String(this.totalCoins), 32, 8);
+            ctx.fillText(String(this.totalCoins), 56, 8);
             // нарисуем иконку монеты
             drawRegion(regions.coin, 1, WORLD_HEIGHT - 1, 1.5, 1.5);
 
@@ -578,21 +569,21 @@
             ctx.textAlign = 'center';
 
             if (this.gameState === 'menu') {
-                ctx.font = '24px system-ui';
+                ctx.font = '24px PixelFont';
                 ctx.fillText('tap to start', canvas.width / 2, canvas.height * 0.6);
 
-                ctx.font = '16px system-ui';
+                ctx.font = '16px PixelFont';
                 ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
             }
 
             if (this.gameState === 'gameover') {
-                ctx.font = '28px system-ui';
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.45);
+                ctx.font = '28px PixelFont';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.2);
 
-                ctx.font = '16px system-ui';
-                ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.55);
-                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.62);
-                ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.7);
+                ctx.font = '16px PixelFont';
+                ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.3);
+                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.35);
+                ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.45);
             }
 
             ctx.restore();
@@ -606,6 +597,9 @@
 
     let lastTime = performance.now(); // microseconds
 
+    function startLoop(){
+
+    }
     function loop(time) {
         const dt = (time - lastTime) / 1000;
         lastTime = time;
@@ -616,7 +610,17 @@
         requestAnimationFrame(loop); // looping
     }
 
-    atlas.onload = () => {
+
+    const pixelFont = new FontFace(
+        'PixelFont',
+        'url(/static/slkscreb.ttf)'
+    );
+    
+    atlas.onload = async () => {
+        const font = await pixelFont.load();
+        document.fonts.add(font);
+        console.log("Pixel font loaded!");
+
         world.resetToMenu();
         requestAnimationFrame(loop); // start loop
     };
