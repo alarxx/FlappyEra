@@ -29,643 +29,981 @@
             margin: 0;
             padding: 0;
         }
+
+        #game-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .menu-btn {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #fff;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: PixelFont;
+            cursor: pointer;
+        }
+
+        .menu-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #menu-button {
+            top: 20%; /* under HS */
+        }
+
+        #change-name-button {
+            top: 95%;
+        }
+
+
+        /* --- nickname --- */
+        #name-overlay {
+            position: absolute;
+            inset: 0; /* top:0; right:0; bottom:0; left:0 */
+            background: rgba(0, 0, 0, 0.7);
+            display: none; 
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .name-dialog {
+            background: #111;
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1px solid #fff;
+            min-width: 220px;
+            text-align: center;
+            font-family: PixelFont, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .name-dialog-title {
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        #name-input {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #000;
+            color: #fff;
+            font-family: inherit;
+        }
+
+        #name-ok {
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #fff;
+            background: #222;
+            color: #fff;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        #name-ok:hover {
+            background: #333;
+        }
+
+        /* --- Leaderboard --- */
+        #leaderboard-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;        /* скрыт по умолчанию */
+            align-items: center;
+            justify-content: center;
+            z-index: 11;          /* чуть выше, чем nickname, если он тоже будет */
+        }
+
+        .leaderboard-dialog {
+            background: #111;
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1px solid #fff;
+            width: 96%;
+            height: 96%;          /* почти весь экран */
+            max-width: none; /* 280px; */
+            max-height: none; /* 420px; */
+            font-family: PixelFont, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .leaderboard-title {
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .leaderboard-list {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+
+        #leaderboard-close {
+            align-self: center;
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #fff;
+            background: #222;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #leaderboard-close:hover {
+            background: #333;
+        }
+
     </style>
 </head>
 
 <body>
-    <canvas id="game" width="320" height="480"></canvas>
+    <div id="game-container">
+        <canvas id="game" width="320" height="480"></canvas>
+        <button id="menu-button" class="menu-btn">Leaderboard</button>
+        <button id="change-name-button" class="menu-btn">Change name</button>
+
+        <!-- Name entering window -->
+        <div id="name-overlay">
+            <div class="name-dialog">
+                <div class="name-dialog-title">Enter your name</div>
+                <input id="name-input" type="text" maxlength="16" placeholder="Player nickname">
+                <button id="name-ok">Enter</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard window -->
+        <div id="leaderboard-overlay">
+            <div class="leaderboard-dialog">
+                <div class="leaderboard-title">Leaderboard</div>
+                <div class="leaderboard-list" id="leaderboard-list">
+                </div>
+                <button id="leaderboard-close">Close</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
-    /* === World/GameScreen === */
-    const WORLD_WIDTH = 10.0;
-    const WORLD_HEIGHT = 15.0;
+        /* === World/GameScreen === */
+        const WORLD_WIDTH = 10.0;
+        const WORLD_HEIGHT = 15.0;
 
-    // Масштаб: мир -> пиксели
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const SCALE_X = canvas.width / WORLD_WIDTH;
-    const SCALE_Y = canvas.height / WORLD_HEIGHT;
+        // Масштаб: мир -> пиксели
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const SCALE_X = canvas.width / WORLD_WIDTH;
+        const SCALE_Y = canvas.height / WORLD_HEIGHT;
 
-    // Утилиты для конвертации
-    function worldToScreenX(x) { return x * SCALE_X; }
-    function worldToScreenY(y) { return canvas.height - y * SCALE_Y; } // y вверх
-    function worldToScreenW(w) { return w * SCALE_X; }
-    function worldToScreenH(h) { return h * SCALE_Y; }
+        // Утилиты для конвертации
+        function worldToScreenX(x) { return x * SCALE_X; }
+        function worldToScreenY(y) { return canvas.height - y * SCALE_Y; } // y вверх
+        function worldToScreenW(w) { return w * SCALE_X; }
+        function worldToScreenH(h) { return h * SCALE_Y; }
 
+        // --- Player nickname ---
+        const nameOverlay = document.getElementById('name-overlay');
+        const nameInput = document.getElementById('name-input');
+        const nameOk = document.getElementById('name-ok');
 
-    // GameObject.position
-    class Rect {
-        constructor(x, y, w, h) {
-            this.x = x; // center x
-            this.y = y; // center y
-            this.w = w;
-            this.h = h;
-        }
-        get left() { return this.x - this.w / 2; }
-        get right() { return this.x + this.w / 2; }
-        get bottom() { return this.y - this.h / 2; }
-        get top() { return this.y + this.h / 2; }
+        const NICK_KEY = 'flappy_nickname';
+        let playerName = localStorage.getItem(NICK_KEY) || '';
 
-        overlaps(other) {
-            return !(this.right < other.left || // полностью слева
-                    this.left > other.right || // полностью справа
-                    this.top < other.bottom || // полностью снизу
-                    this.bottom > other.top); // полностью сверху
+        // если имя не задано — показываем окно
+        if (!playerName) {
+            showNameOverlay();
         }
 
-        containsPoint(px, py) { // point inside the rect
-            return px >= this.left && px <= this.right &&
-                py >= this.bottom && py <= this.top;
-        }
-    }
-
-    const atlas = new Image();
-    atlas.src = '/static/background.png';
-
-    const regions = {
-        backgroundRegion: { sx: 0,   sy: 0,   sw: 320, sh: 480 }, // 480 + 64 = 544
-        down:             { sx: 320, sy: 480, sw: 320, sh: 64  },
-        columnT:          { sx: 384, sy: 0,   sw: 64,  sh: 176 }, // 176 * 2 = 352
-        columnB:          { sx: 448, sy: 0,   sw: 64,  sh: 176 },
-        bird:             { sx: 576, sy: 0,   sw: 64,  sh: 64  },
-        coin:             { sx: 576, sy: 64,  sw: 64,  sh: 64  }
-    };
-
-    function drawRegion(region, x, y, w, h, angleDeg = 0) {
-        const dx = worldToScreenX(x); // координаты центра
-        const dy = worldToScreenY(y);
-        const dw = worldToScreenW(w);
-        const dh = worldToScreenH(h);
-
-        // Без поворота — самый дешёвый путь
-        if (angleDeg === 0) {
-            ctx.drawImage(
-                atlas,
-                region.sx, region.sy, region.sw, region.sh,
-                dx - dw / 2, dy - dh / 2, dw, dh
-            );
-        }
-        else {
-            ctx.save();
-            ctx.translate(dx, dy);
-            ctx.rotate(-angleDeg * Math.PI / 180); // в JS угол по часовой, в нашем мире y вверх
-            // но рисуем относительно левого-верхнего края
-            ctx.drawImage(
-                atlas,
-                region.sx, region.sy, region.sw, region.sh,
-                -dw / 2, -dh / 2, dw, dh
-            );
-            ctx.restore();
-        }
-    }
-
-    class Background {
-        static vel = -1.0;
-
-        constructor() {
-            this.bc1 = {
-                x: 0,
-                y: WORLD_HEIGHT / 2,
-            };
-            this.bc2 = {
-                x: WORLD_WIDTH,
-                y: WORLD_HEIGHT / 2,
-            };
-
-            this.halfW = WORLD_WIDTH / 2;
+        function showNameOverlay() {
+            if (!nameOverlay) return;
+            nameInput.value = '';
+            nameOverlay.style.display = 'flex';
+            // небольшая задержка, чтобы браузер успел отрисовать, тогда focus лучше срабатывает
+            setTimeout(() => nameInput.focus(), 0);
         }
 
-        update(dt) {
-            let shift = Background.vel * dt;
+        function hideNameOverlay() {
+            if (!nameOverlay) return;
+            nameOverlay.style.display = 'none';
+        }
 
-            this.bc1.x += shift;
-            this.bc2.x += shift;
-            if (this.bc1.x < -this.halfW) {
-                this.bc1.x = 1.5 * WORLD_WIDTH;
-                this.bc2.x = 0.5 * WORLD_WIDTH;
+        function confirmName() {
+            const value = nameInput.value.trim();
+            if (!value) {
+                return; // не даем записать пустое имя
             }
-            else if (this.bc2.x < -this.halfW) {
-                this.bc1.x = 0.5 * WORLD_WIDTH;
-                this.bc2.x = 1.5 * WORLD_WIDTH;
+            playerName = value.toLowerCase();
+            localStorage.setItem(NICK_KEY, playerName);
+            hideNameOverlay();
+        }
+
+        nameOk.addEventListener('click', (e) => {
+            e.preventDefault();
+            confirmName();
+        });
+
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmName();
             }
+        });
+
+        // --- ---
+
+        // --- Leaderboard ---
+        const leaderboardOverlay = document.getElementById('leaderboard-overlay');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const leaderboardClose = document.getElementById('leaderboard-close');
+
+        function showLeaderboardOverlay() {
+            if (!leaderboardOverlay) return;
+            leaderboardOverlay.style.display = 'flex';
         }
 
-        render() {
-            drawRegion(regions.backgroundRegion, this.bc2.x, this.bc2.y, WORLD_WIDTH + 0.2, WORLD_HEIGHT);
-            drawRegion(regions.backgroundRegion, this.bc1.x, this.bc1.y, WORLD_WIDTH, WORLD_HEIGHT);
-        }
-    }
-
-    /* === DownTown (земля) аналог DownTown.java === */
-    class DownTown {
-        static WIDTH = WORLD_WIDTH;
-        static HEIGHT = 2; // 64 / 32
-        // Magic numbers
-        static VELOCITY = -4.5;
-
-        constructor() {
-            this.halfW = DownTown.WIDTH / 2;
-
-            this.bc1 = { x: 0, y: 0 };
-            this.bc2 = { x: DownTown.WIDTH, y: 0 };
+        function hideLeaderboardOverlay() {
+            if (!leaderboardOverlay) return;
+            leaderboardOverlay.style.display = 'none';
         }
 
-        update(dt) {
-            let shift = DownTown.VELOCITY * dt;
+        leaderboardClose.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideLeaderboardOverlay();
+        });
 
-            this.bc1.x += shift;
-            this.bc2.x += shift;
+        function renderLeaderboard(rows) {
+            leaderboardList.innerHTML = '';
 
-            if (this.bc1.x < -this.halfW) {
-                this.bc1.x = 1.5 * DownTown.WIDTH;
-                this.bc2.x = 0.5 * DownTown.WIDTH;
+            if (!rows || rows.length === 0) {
+                leaderboardList.textContent = 'No scores yet';
+                return;
             }
-            else if (this.bc2.x < -this.halfW) {
-                this.bc1.x = 0.5 * DownTown.WIDTH;
-                this.bc2.x = 1.5 * DownTown.WIDTH;
+
+            // сортируем по score по убыванию, при равном score — по времени (новые выше/ниже, как хочешь)
+            rows.sort((a, b) => {
+                const sa = a.score ?? 0;
+                const sb = b.score ?? 0;
+                if (sb !== sa) return sb - sa;
+                // вторичная сортировка по дате (новые выше)
+                const ta = new Date(a.created_at).getTime();
+                const tb = new Date(b.created_at).getTime();
+                return tb - ta;
+            });
+
+            rows.slice(0, 100).forEach((row, idx) => {
+                const div = document.createElement('div');
+                div.className = 'leaderboard-row';
+
+                const name = (!row.nickname || row.nickname === 'None') ? 'Player' : row.nickname;
+                const score = row.score ?? 0;
+
+                // формат "1. Alar - 7"
+                div.textContent = `${idx + 1}. ${name} - ${score}`;
+                leaderboardList.appendChild(div);
+            });
+        }
+
+
+        // загрузка с бэкенда
+        async function loadLeaderboard() {
+            try {
+                const resp = await fetch('/api/score');
+                if (!resp.ok) {
+                    console.error('Leaderboard error status', resp.status);
+                    leaderboardList.textContent = 'Error loading leaderboard';
+                    return;
+                }
+                const json = await resp.json();
+                const rows = Array.isArray(json.data) ? json.data : [];
+                 renderLeaderboard(rows);
+            } catch (e) {
+                console.error('Leaderboard fetch error', e);
+                leaderboardList.textContent = 'Error loading leaderboard';
             }
         }
+        // --- Leaderboard End ---
 
-        render() {
-            drawRegion(regions.down, this.bc2.x, this.bc2.y, DownTown.WIDTH + 0.2, 2);
-            drawRegion(regions.down, this.bc1.x, this.bc1.y, DownTown.WIDTH, 2);
-        }
-    }
 
-    class Bird {
-        static BIRD_WIDTH = 2.0;
-        static BIRD_HEIGHT = 2.0;
-        static BIRD_JUMP_VELOCITY = 9.0;
-        static FALL_VELOCITY = -30.0;
+        // GameObject.position
+        class Rect {
+            constructor(x, y, w, h) {
+                this.x = x; // center x
+                this.y = y; // center y
+                this.w = w;
+                this.h = h;
+            }
+            get left() { return this.x - this.w / 2; }
+            get right() { return this.x + this.w / 2; }
+            get bottom() { return this.y - this.h / 2; }
+            get top() { return this.y + this.h / 2; }
 
-        static STATE_JUMP = 0;
-        static STATE_FALL = 1;
-        static STATE_HIT = 2;
-    
-        constructor() {
-            this.reset();
-        }
+            overlaps(other) {
+                return !(this.right < other.left || // полностью слева
+                        this.left > other.right || // полностью справа
+                        this.top < other.bottom || // полностью снизу
+                        this.bottom > other.top); // полностью сверху
+            }
 
-        reset() {
-            this.x = WORLD_WIDTH / 4;
-            this.y = WORLD_HEIGHT / 2;
-            this.vx = 0;
-            this.vy = 0;
-            this.state = Bird.STATE_FALL;
-
-            // hitbox (как birdR)
-            this.hitbox = new Rect(
-                this.x + 0.1,
-                this.y,
-                Bird.BIRD_WIDTH / 2 - 0.2,
-                Bird.BIRD_HEIGHT - 0.2
-            );
-
-            // this.im = 0;
-            this.angle = 0;
+            containsPoint(px, py) { // point inside the rect
+                return px >= this.left && px <= this.right &&
+                    py >= this.bottom && py <= this.top;
+            }
         }
 
-        hit(s = 1){
-            this.state = Bird.STATE_HIT;
-            this.vy = s * 10;
+        const atlas = new Image();
+        atlas.src = '/static/background.png';
+
+        const regions = {
+            backgroundRegion: { sx: 0,   sy: 0,   sw: 320, sh: 480 }, // 480 + 64 = 544
+            down:             { sx: 320, sy: 480, sw: 320, sh: 64  },
+            columnT:          { sx: 384, sy: 0,   sw: 64,  sh: 176 }, // 176 * 2 = 352
+            columnB:          { sx: 448, sy: 0,   sw: 64,  sh: 176 },
+            bird:             { sx: 576, sy: 0,   sw: 64,  sh: 64  },
+            coin:             { sx: 576, sy: 64,  sw: 64,  sh: 64  }
+        };
+
+        function drawRegion(region, x, y, w, h, angleDeg = 0) {
+            const dx = worldToScreenX(x); // координаты центра
+            const dy = worldToScreenY(y);
+            const dw = worldToScreenW(w);
+            const dh = worldToScreenH(h);
+
+            // Без поворота — самый дешёвый путь
+            if (angleDeg === 0) {
+                ctx.drawImage(
+                    atlas,
+                    region.sx, region.sy, region.sw, region.sh,
+                    dx - dw / 2, dy - dh / 2, dw, dh
+                );
+            }
+            else {
+                ctx.save();
+                ctx.translate(dx, dy);
+                ctx.rotate(-angleDeg * Math.PI / 180); // в JS угол по часовой, в нашем мире y вверх
+                // но рисуем относительно левого-верхнего края
+                ctx.drawImage(
+                    atlas,
+                    region.sx, region.sy, region.sw, region.sh,
+                    -dw / 2, -dh / 2, dw, dh
+                );
+                ctx.restore();
+            }
         }
 
-        jump() {
-            if (this.state === Bird.STATE_HIT) return;
-            this.vy = Bird.BIRD_JUMP_VELOCITY;
-            this.state = Bird.STATE_JUMP;
-        }
+        class Background {
+            static vel = -1.0;
 
-        render() {
-            drawRegion(regions.bird, this.x, this.y, Bird.BIRD_WIDTH, Bird.BIRD_HEIGHT, this.angle);
-        }
+            constructor() {
+                this.bc1 = {
+                    x: 0,
+                    y: WORLD_HEIGHT / 2,
+                };
+                this.bc2 = {
+                    x: WORLD_WIDTH,
+                    y: WORLD_HEIGHT / 2,
+                };
 
-        isDead() {
-            return this.state === Bird.STATE_HIT && this.y <= Bird.BIRD_HEIGHT / 2 + 1.0;
-        }
+                this.halfW = WORLD_WIDTH / 2;
+            }
 
-        update(dt) {
-            // Удар об низ
-            if (this.y < Bird.BIRD_HEIGHT / 2 + 1.0) {
-                if (this.state !== Bird.STATE_HIT) {
-                    this.hit();
+            update(dt) {
+                let shift = Background.vel * dt;
+
+                this.bc1.x += shift;
+                this.bc2.x += shift;
+                if (this.bc1.x < -this.halfW) {
+                    this.bc1.x = 1.5 * WORLD_WIDTH;
+                    this.bc2.x = 0.5 * WORLD_WIDTH;
+                }
+                else if (this.bc2.x < -this.halfW) {
+                    this.bc1.x = 0.5 * WORLD_WIDTH;
+                    this.bc2.x = 1.5 * WORLD_WIDTH;
                 }
             }
-            // Верх
-            if (this.y > WORLD_HEIGHT - Bird.BIRD_HEIGHT / 2) {
-                if (this.state !== Bird.STATE_HIT) {
-                    this.hit();
+
+            render() {
+                drawRegion(regions.backgroundRegion, this.bc2.x, this.bc2.y, WORLD_WIDTH + 0.2, WORLD_HEIGHT);
+                drawRegion(regions.backgroundRegion, this.bc1.x, this.bc1.y, WORLD_WIDTH, WORLD_HEIGHT);
+            }
+        }
+
+        /* === DownTown (земля) аналог DownTown.java === */
+        class DownTown {
+            static WIDTH = WORLD_WIDTH;
+            static HEIGHT = 2; // 64 / 32
+            // Magic numbers
+            static VELOCITY = -4.5;
+
+            constructor() {
+                this.halfW = DownTown.WIDTH / 2;
+
+                this.bc1 = { x: 0, y: 0 };
+                this.bc2 = { x: DownTown.WIDTH, y: 0 };
+            }
+
+            update(dt) {
+                let shift = DownTown.VELOCITY * dt;
+
+                this.bc1.x += shift;
+                this.bc2.x += shift;
+
+                if (this.bc1.x < -this.halfW) {
+                    this.bc1.x = 1.5 * DownTown.WIDTH;
+                    this.bc2.x = 0.5 * DownTown.WIDTH;
+                }
+                else if (this.bc2.x < -this.halfW) {
+                    this.bc1.x = 0.5 * DownTown.WIDTH;
+                    this.bc2.x = 1.5 * DownTown.WIDTH;
                 }
             }
 
-            if (this.state === Bird.STATE_HIT) {
-                // Падение с отскоком влево, как в Java
-                if (this.y > Bird.BIRD_HEIGHT / 2 + 1.0) {
+            render() {
+                drawRegion(regions.down, this.bc2.x, this.bc2.y, DownTown.WIDTH + 0.2, 2);
+                drawRegion(regions.down, this.bc1.x, this.bc1.y, DownTown.WIDTH, 2);
+            }
+        }
+
+        class Bird {
+            static BIRD_WIDTH = 2.0;
+            static BIRD_HEIGHT = 2.0;
+            static BIRD_JUMP_VELOCITY = 9.0;
+            static FALL_VELOCITY = -30.0;
+
+            static STATE_JUMP = 0;
+            static STATE_FALL = 1;
+            static STATE_HIT = 2;
+        
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = WORLD_WIDTH / 4;
+                this.y = WORLD_HEIGHT / 2;
+                this.vx = 0;
+                this.vy = 0;
+                this.state = Bird.STATE_FALL;
+
+                // hitbox (как birdR)
+                this.hitbox = new Rect(
+                    this.x + 0.1,
+                    this.y,
+                    Bird.BIRD_WIDTH / 2 - 0.2,
+                    Bird.BIRD_HEIGHT - 0.2
+                );
+
+                // this.im = 0;
+                this.angle = 0;
+            }
+
+            hit(s = 1){
+                this.state = Bird.STATE_HIT;
+                this.vy = s * 10;
+            }
+
+            jump() {
+                if (this.state === Bird.STATE_HIT) return;
+                this.vy = Bird.BIRD_JUMP_VELOCITY;
+                this.state = Bird.STATE_JUMP;
+            }
+
+            render() {
+                drawRegion(regions.bird, this.x, this.y, Bird.BIRD_WIDTH, Bird.BIRD_HEIGHT, this.angle);
+            }
+
+            isDead() {
+                return this.state === Bird.STATE_HIT && this.y <= Bird.BIRD_HEIGHT / 2 + 1.0;
+            }
+
+            update(dt) {
+                // Удар об низ
+                if (this.y < Bird.BIRD_HEIGHT / 2 + 1.0) {
+                    if (this.state !== Bird.STATE_HIT) {
+                        this.hit();
+                    }
+                }
+                // Верх
+                if (this.y > WORLD_HEIGHT - Bird.BIRD_HEIGHT / 2) {
+                    if (this.state !== Bird.STATE_HIT) {
+                        this.hit();
+                    }
+                }
+
+                if (this.state === Bird.STATE_HIT) {
+                    // Падение с отскоком влево, как в Java
+                    if (this.y > Bird.BIRD_HEIGHT / 2 + 1.0) {
+                        this.vy += Bird.FALL_VELOCITY * dt;
+                        this.x += -1 * dt;
+                        this.y += this.vy * dt;
+                    }
+                } else {
+                    // Обычное падение
                     this.vy += Bird.FALL_VELOCITY * dt;
-                    this.x += -1 * dt;
                     this.y += this.vy * dt;
                 }
-            } else {
-                // Обычное падение
-                this.vy += Bird.FALL_VELOCITY * dt;
-                this.y += this.vy * dt;
-            }
 
-            // Обновление hitbox
-            this.hitbox.x = this.x + 0.1;
-            this.hitbox.y = this.y;
+                // Обновление hitbox
+                this.hitbox.x = this.x + 0.1;
+                this.hitbox.y = this.y;
 
-            // Анимация угла
-            if (this.state === Bird.STATE_HIT) {
-                this.angle = 0;
-            } else {
-                if (this.vy < -3) {
-                    if (this.state !== Bird.STATE_FALL) {
-                        this.state = Bird.STATE_FALL;
-                        // this.im = 0;
-                    }
-                    this.angle = -15;
-                    // this.im++;
+                // Анимация угла
+                if (this.state === Bird.STATE_HIT) {
+                    this.angle = 0;
                 } else {
-                    if (this.state !== Bird.STATE_JUMP) {
-                        this.state = Bird.STATE_JUMP;
-                        // this.im = 0;
+                    if (this.vy < -3) {
+                        if (this.state !== Bird.STATE_FALL) {
+                            this.state = Bird.STATE_FALL;
+                            // this.im = 0;
+                        }
+                        this.angle = -15;
+                        // this.im++;
+                    } else {
+                        if (this.state !== Bird.STATE_JUMP) {
+                            this.state = Bird.STATE_JUMP;
+                            // this.im = 0;
+                        }
+                        this.angle = 15;
+                        // this.im++;
                     }
-                    this.angle = 15;
-                    // this.im++;
-                }
-            }
-        }
-
-    }
-
-    class ColumnSystem {
-        static COLUMN_WIDTH = 2.25;
-        static COLUMN_HEIGHT = WORLD_HEIGHT;
-        static COIN_SIZE = 2.0;
-        static COLUMN_DELTA = 3.75;
-        static MIN_VELOCITY = -6;
-
-        constructor() {
-            this.reset();
-        }
-
-        reset() {
-            this.velocity = DownTown.VELOCITY;
-            this.columns = []; // 2 columns
-
-            const y1 = this.randY();
-            const x1 = WORLD_WIDTH + ColumnSystem.COLUMN_WIDTH / 2;
-            this.columns.push(this.makeColumn(x1, y1));
-
-            const y2 = this.randY(y1);
-            const x2 = x1 + WORLD_WIDTH / 2 + ColumnSystem.COLUMN_WIDTH;
-            this.columns.push(this.makeColumn(x2, y2));
-        }
-
-        randY(prevY = null) {
-            // not 100% correct
-            let y = DownTown.HEIGHT + ColumnSystem.COLUMN_DELTA / 2 + Math.random() * (WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - DownTown.HEIGHT);
-
-            if (y < 4.5) y = 4.5;
-            if (y > WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0) {
-                y = WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0;
-            }
-
-            if (prevY !== null && Math.abs(y - prevY) > 5) {
-                while (Math.abs(y - prevY) > 5) {
-                    y += (y > prevY) ? -1.0 : 1.0;
                 }
             }
 
-            return y;
         }
 
-        makeColumn(x, y) {
-            return {
-                yCenter: y,
-                scored: false,  // этот проход уже засчитан?
-                coinAlive: true,
-                top: new Rect(
-                    x,
-                    y + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2,
-                    ColumnSystem.COLUMN_WIDTH,
-                    ColumnSystem.COLUMN_HEIGHT
-                ),
-                bottom: new Rect(
-                    x,
-                    y - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2,
-                    ColumnSystem.COLUMN_WIDTH,
-                    ColumnSystem.COLUMN_HEIGHT
-                ),
-                coin: new Rect(x, y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE),
-            };
-        }
+        class ColumnSystem {
+            static COLUMN_WIDTH = 2.25;
+            static COLUMN_HEIGHT = WORLD_HEIGHT;
+            static COIN_SIZE = 2.0;
+            static COLUMN_DELTA = 3.75;
+            static MIN_VELOCITY = -6;
 
-        update(dt) {
-            const shift = this.velocity * dt;
+            constructor() {
+                this.reset();
+            }
 
-            for (const col of this.columns) {
-                if (col.top.x > -ColumnSystem.COLUMN_WIDTH / 2) {
-                    col.top.x += shift;
-                    col.bottom.x += shift;
-                    col.coin.x += shift;
-                } else {
-                    if (this.velocity > ColumnSystem.MIN_VELOCITY) {
-                        this.velocity -= 0.005;
+            reset() {
+                this.velocity = DownTown.VELOCITY;
+                this.columns = []; // 2 columns
+
+                const y1 = this.randY();
+                const x1 = WORLD_WIDTH + ColumnSystem.COLUMN_WIDTH / 2;
+                this.columns.push(this.makeColumn(x1, y1));
+
+                const y2 = this.randY(y1);
+                const x2 = x1 + WORLD_WIDTH / 2 + ColumnSystem.COLUMN_WIDTH;
+                this.columns.push(this.makeColumn(x2, y2));
+            }
+
+            randY(prevY = null) {
+                // not 100% correct
+                let y = DownTown.HEIGHT + ColumnSystem.COLUMN_DELTA / 2 + Math.random() * (WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - DownTown.HEIGHT);
+
+                if (y < 4.5) y = 4.5;
+                if (y > WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0) {
+                    y = WORLD_HEIGHT - ColumnSystem.COLUMN_DELTA - 1.0;
+                }
+
+                if (prevY !== null && Math.abs(y - prevY) > 5) {
+                    while (Math.abs(y - prevY) > 5) {
+                        y += (y > prevY) ? -1.0 : 1.0;
                     }
+                }
 
-                    col.yCenter = this.randY(col.yCenter);
+                return y;
+            }
 
-                    const x = WORLD_WIDTH + 1.5 * ColumnSystem.COLUMN_WIDTH;
+            makeColumn(x, y) {
+                return {
+                    yCenter: y,
+                    scored: false,  // этот проход уже засчитан?
+                    coinAlive: true,
+                    top: new Rect(
+                        x,
+                        y + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2,
+                        ColumnSystem.COLUMN_WIDTH,
+                        ColumnSystem.COLUMN_HEIGHT
+                    ),
+                    bottom: new Rect(
+                        x,
+                        y - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2,
+                        ColumnSystem.COLUMN_WIDTH,
+                        ColumnSystem.COLUMN_HEIGHT
+                    ),
+                    coin: new Rect(x, y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE),
+                };
+            }
 
-                    col.scored = false;
-                    col.coinAlive = true;
+            update(dt) {
+                const shift = this.velocity * dt;
 
-                    col.top.x = x;
-                    col.top.y = col.yCenter + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2;
+                for (const col of this.columns) {
+                    if (col.top.x > -ColumnSystem.COLUMN_WIDTH / 2) {
+                        col.top.x += shift;
+                        col.bottom.x += shift;
+                        col.coin.x += shift;
+                    } else {
+                        if (this.velocity > ColumnSystem.MIN_VELOCITY) {
+                            this.velocity -= 0.005;
+                        }
 
-                    col.bottom.x = x;
-                    col.bottom.y = col.yCenter - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2;
+                        col.yCenter = this.randY(col.yCenter);
 
-                    col.coin.x = x;
-                    col.coin.y = col.yCenter;
+                        const x = WORLD_WIDTH + 1.5 * ColumnSystem.COLUMN_WIDTH;
+
+                        col.scored = false;
+                        col.coinAlive = true;
+
+                        col.top.x = x;
+                        col.top.y = col.yCenter + ColumnSystem.COLUMN_HEIGHT / 2 + ColumnSystem.COLUMN_DELTA / 2;
+
+                        col.bottom.x = x;
+                        col.bottom.y = col.yCenter - ColumnSystem.COLUMN_HEIGHT / 2 - ColumnSystem.COLUMN_DELTA / 2;
+
+                        col.coin.x = x;
+                        col.coin.y = col.yCenter;
+                    }
                 }
             }
-        }
 
-        render() {
-            for (const col of this.columns) {
-                if (col.coinAlive) {
-                    drawRegion(regions.coin, col.coin.x, col.coin.y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE);
-                }
-                drawRegion(regions.columnT, col.top.x, col.top.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
-                drawRegion(regions.columnB, col.bottom.x, col.bottom.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
-            }
-        }
-
-        checkScoreAndCoins(birdRect) {
-            let gainedScore = 0;
-
-            for (const col of this.columns) {
-                const gapx = col.top.x;
-                const gapy = col.yCenter;
-
-                if (!col.scored && birdRect.containsPoint(gapx, gapy)) {
-                    col.scored = true;
+            render() {
+                for (const col of this.columns) {
                     if (col.coinAlive) {
-                        col.coinAlive = false;
-                        gainedScore += 1;
+                        drawRegion(regions.coin, col.coin.x, col.coin.y, ColumnSystem.COIN_SIZE, ColumnSystem.COIN_SIZE);
+                    }
+                    drawRegion(regions.columnT, col.top.x, col.top.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
+                    drawRegion(regions.columnB, col.bottom.x, col.bottom.y, ColumnSystem.COLUMN_WIDTH, ColumnSystem.COLUMN_HEIGHT);
+                }
+            }
+
+            checkScoreAndCoins(birdRect) {
+                let gainedScore = 0;
+
+                for (const col of this.columns) {
+                    const gapx = col.top.x;
+                    const gapy = col.yCenter;
+
+                    if (!col.scored && birdRect.containsPoint(gapx, gapy)) {
+                        col.scored = true;
+                        if (col.coinAlive) {
+                            col.coinAlive = false;
+                            gainedScore += 1;
+                        }
                     }
                 }
+                return gainedScore
             }
-            return gainedScore
-        }
 
-        collides(birdRect) {
-            for (const col of this.columns) {
-                if (birdRect.overlaps(col.top) || birdRect.overlaps(col.bottom)) {
-                    return true;
+            collides(birdRect) {
+                for (const col of this.columns) {
+                    if (birdRect.overlaps(col.top) || birdRect.overlaps(col.bottom)) {
+                        return true;
+                    }
                 }
+                return false;
             }
-            return false;
-        }
-    }
-
-
-    /* --- World/GameScreen --- */
-    class WorldGame {
-        constructor() {
-            this.background = new Background();
-            this.downTown = new DownTown();
-            this.bird = new Bird();
-            this.columns = new ColumnSystem();
-
-            this.highscore = parseInt(localStorage.getItem('flappy_highscore') || '0', 10);
-            this.totalCoins = parseInt(localStorage.getItem('flappy_coins') || '0', 10);
-
-            this.resetToMenu();
         }
 
 
-        reset(state){
-            // state = 'menu' | 'playing' | 'gameover'
-            this.bird.reset();
-            this.columns.reset();
-            this.score = 0;
-            this.gameState = state;
-        }
-        resetToMenu() { this.reset('menu'); }
-        startGame() { this.reset('playing'); }
+        /* --- World/GameScreen --- */
+        class WorldGame {
+            constructor() {
+                this.background = new Background();
+                this.downTown = new DownTown();
+                this.bird = new Bird();
+                this.columns = new ColumnSystem();
 
-
-
-        update(dt) {
-            // if (dt > 0.05) dt = 0.05;
-
-            if (this.gameState === 'menu') {
-                this.background.update(dt);
-                this.downTown.update(dt);
-                this.bird.state = Bird.STATE_HIT; // как в MainMenuScreen
+                this.resetFromStorage();
+                this.resetToMenu();
             }
 
-            else if (this.gameState === 'playing') {
-                this.bird.update(dt);
-                if(this.bird.state != Bird.STATE_HIT){
+            resetFromStorage(){
+                this.highscore = parseInt(localStorage.getItem('flappy_highscore') || '0', 10);
+                this.totalCoins = parseInt(localStorage.getItem('flappy_coins') || '0', 10);
+            }
+
+
+            reset(state){
+                // state = 'menu' | 'playing' | 'gameover'
+                this.bird.reset();
+                this.columns.reset();
+                this.score = 0;
+                this.gameState = state;
+            }
+            resetToMenu() { this.reset('menu'); }
+            startGame() { this.reset('playing'); }
+
+
+
+            update(dt) {
+                // if (dt > 0.05) dt = 0.05;
+
+                if (this.gameState === 'menu') {
                     this.background.update(dt);
                     this.downTown.update(dt);
-                    this.columns.update(dt);
+                    this.bird.state = Bird.STATE_HIT; // как в MainMenuScreen
                 }
 
-                // чек поинты/монетки
-                const gainedScore = this.columns.checkScoreAndCoins(this.bird.hitbox);
-                if (gainedScore > 0) {
-                    this.score += gainedScore;
-                    this.totalCoins += gainedScore;
+                else if (this.gameState === 'playing') {
+                    this.bird.update(dt);
+                    if(this.bird.state != Bird.STATE_HIT){
+                        this.background.update(dt);
+                        this.downTown.update(dt);
+                        this.columns.update(dt);
+                    }
 
-                    // тут можно проиграть звук coinS
-                }
+                    // чек поинты/монетки
+                    const gainedScore = this.columns.checkScoreAndCoins(this.bird.hitbox);
+                    if (gainedScore > 0) {
+                        this.score += gainedScore;
+                        this.totalCoins += gainedScore;
 
-                // пересечение с колоннами
-                if (this.columns.collides(this.bird.hitbox)) {
-                    if (this.bird.state !== Bird.STATE_HIT) {
-                        this.bird.hit();
-                        // тут можно проиграть звук sasi
+                        // тут можно проиграть звук coinS
+                    }
+
+                    // пересечение с колоннами
+                    if (this.columns.collides(this.bird.hitbox)) {
+                        if (this.bird.state !== Bird.STATE_HIT) {
+                            this.bird.hit();
+                            // тут можно проиграть звук sasi
+                        }
+                    }
+
+                    // если окончательно упал на землю → game over
+                    if (this.bird.isDead()) {
+                        this.gameOver();
                     }
                 }
 
-                // если окончательно упал на землю → game over
-                if (this.bird.isDead()) {
-                    this.gameOver();
+                else if (this.gameState === 'gameover') {
+                    // даём птичке падать, пока не ляжет
+                    this.bird.update(dt);
                 }
             }
 
-            else if (this.gameState === 'gameover') {
-                // даём птичке падать, пока не ляжет
-                this.bird.update(dt);
+            gameOver() {
+                // highscore
+                if (this.score > this.highscore) {
+                    this.highscore = this.score;
+                    localStorage.setItem('flappy_highscore', String(this.highscore));
+                    submitHighscore(this.score);
+
+                }
+
+                // coins
+                localStorage.setItem('flappy_coins', String(this.totalCoins));
+
+                this.gameState = 'gameover';
             }
-        }
 
-        gameOver() {
-            // highscore
-            if (this.score > this.highscore) {
-                this.highscore = this.score;
-                localStorage.setItem('flappy_highscore', String(this.highscore));
-            }
-
-            // coins
-            localStorage.setItem('flappy_coins', String(this.totalCoins));
-
-            this.gameState = 'gameover';
-        }
-
-        onTap() {
-            if (this.gameState === 'menu') {
-                this.startGame();
-            } else if (this.gameState === 'playing') {
-                this.bird.jump();
-                // touchSound тут
-            } else if (this.gameState === 'gameover') {
-                // если упал на землю → в меню
-                if (this.bird.isDead()) {
-                    this.resetToMenu();
-                } else {
-                    // ещё в полёте — тоже можно подпрыгнуть, но классика: ждём пока упадёт
+            onTap() {
+                if (this.gameState === 'menu') {
+                    this.startGame();
+                } else if (this.gameState === 'playing') {
+                    this.bird.jump();
+                    // touchSound тут
+                } else if (this.gameState === 'gameover') {
+                    // если упал на землю → в меню
+                    if (this.bird.isDead()) {
+                        this.resetToMenu();
+                    } else {
+                        // ещё в полёте — тоже можно подпрыгнуть, но классика: ждём пока упадёт
+                    }
                 }
             }
+
+            render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // фон + земля
+                this.background.render();
+
+                // трубы + монеты
+                this.columns.render();
+
+                this.downTown.render();
+
+                // птица
+                this.bird.render();
+
+                // UI
+                ctx.save();
+                ctx.font = '20px PixelFont';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                ctx.fillStyle = '#000000';
+
+                // score
+                ctx.fillText(String(this.score), canvas.width - 16, 8);
+
+                // coins
+                ctx.textAlign = 'left';
+                ctx.fillText(String(this.totalCoins), 56, 8);
+                // нарисуем иконку монеты
+                drawRegion(regions.coin, 1, WORLD_HEIGHT - 1, 1.5, 1.5);
+
+                // подсказки/надписи
+                ctx.textAlign = 'center';
+
+                if (this.gameState === 'menu') {
+                    ctx.font = '24px PixelFont';
+                    ctx.fillText('tap to start', canvas.width / 2, canvas.height * 0.6);
+
+                    ctx.font = '16px PixelFont';
+                    ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
+                }
+
+                if (this.gameState === 'gameover') {
+                    ctx.font = '28px PixelFont';
+                    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.25);
+
+                    ctx.font = '16px PixelFont';
+                    ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.35);
+                    ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.4);
+                    ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.55);
+                }
+
+                ctx.restore();
+            }
         }
 
-        render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // фон + земля
-            this.background.render();
+        // --- Main Loop ---
 
-            // трубы + монеты
-            this.columns.render();
+        const world = new WorldGame();
 
-            this.downTown.render();
+        let lastTime = performance.now(); // microseconds
 
-            // птица
-            this.bird.render();
+        function loop(time) {
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
 
-            // UI
-            ctx.save();
-            ctx.font = '20px PixelFont';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'top';
-            ctx.fillStyle = '#000000';
+            world.update(dt);
+            world.render();
 
-            // score
-            ctx.fillText(String(this.score), canvas.width - 16, 8);
+            requestAnimationFrame(loop); // looping
+        }
 
-            // coins
-            ctx.textAlign = 'left';
-            ctx.fillText(String(this.totalCoins), 56, 8);
-            // нарисуем иконку монеты
-            drawRegion(regions.coin, 1, WORLD_HEIGHT - 1, 1.5, 1.5);
+        const pixelFont = new FontFace(
+            'PixelFont',
+            'url(/static/slkscreb.ttf)'
+        );
+        
+        atlas.onload = async () => {
+            const font = await pixelFont.load();
+            document.fonts.add(font);
+            console.log("Pixel font loaded!");
 
-            // подсказки/надписи
-            ctx.textAlign = 'center';
+            world.resetToMenu();
+            requestAnimationFrame(loop); // start loop
+        };
 
-            if (this.gameState === 'menu') {
-                ctx.font = '24px PixelFont';
-                ctx.fillText('tap to start', canvas.width / 2, canvas.height * 0.6);
+        function onTapEvent(e) {
+            e.preventDefault();
+            world.onTap();
+            updateMenuButton();
+        }
+        canvas.addEventListener('mousedown', onTapEvent); // desktop
+        canvas.addEventListener('touchstart', onTapEvent, { passive: false }); // mobile
 
-                ctx.font = '16px PixelFont';
-                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.1);
+        // ---
+
+
+        // --- Canvas Size ---
+
+        const GAME_WIDTH = 320;
+        const GAME_HEIGHT = 480 + 64;
+        const GAME_ASPECT = GAME_WIDTH / GAME_HEIGHT; // твои оригинальные размеры
+
+        function resizeCanvas() {
+            let iw = window.innerWidth;
+            let ih = window.innerHeight;
+
+            // real proportion
+            let winAspect = iw / ih;
+
+            if (winAspect > GAME_ASPECT) {
+                // экран слишком широкий
+                iw = ih * GAME_ASPECT;
+            } else {
+                // экран слишком высокий
+                ih = iw / GAME_ASPECT;
             }
 
-            if (this.gameState === 'gameover') {
-                ctx.font = '28px PixelFont';
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height * 0.2);
+            canvas.style.width = iw + "px";
+            canvas.style.height = ih + "px";
+        }
 
-                ctx.font = '16px PixelFont';
-                ctx.fillText('Score: ' + this.score, canvas.width / 2, canvas.height * 0.3);
-                ctx.fillText('HS: ' + this.highscore, canvas.width / 2, canvas.height * 0.35);
-                ctx.fillText('Tap to restart', canvas.width / 2, canvas.height * 0.45);
+        window.addEventListener("resize", resizeCanvas);
+
+        resizeCanvas();
+
+        // ---
+
+
+        const menuButton = document.getElementById('menu-button'); 
+        const changeNameButton = document.getElementById('change-name-button'); 
+        
+        function updateMenuButton() {
+            // показываем кнопку только в меню
+            if (!menuButton) return;
+            if (world.gameState === 'menu') {
+                menuButton.style.display = 'block';
+                changeNameButton.style.display = 'block';
+            } else {
+                menuButton.style.display = 'none';
+                changeNameButton.style.display = 'none';
             }
-
-            ctx.restore();
-        }
-    }
-
-
-    // --- Main Loop ---
-
-    const world = new WorldGame();
-
-    let lastTime = performance.now(); // microseconds
-
-    function startLoop(){
-
-    }
-    function loop(time) {
-        const dt = (time - lastTime) / 1000;
-        lastTime = time;
-
-        world.update(dt);
-        world.render();
-
-        requestAnimationFrame(loop); // looping
-    }
-
-
-    const pixelFont = new FontFace(
-        'PixelFont',
-        'url(/static/slkscreb.ttf)'
-    );
-    
-    atlas.onload = async () => {
-        const font = await pixelFont.load();
-        document.fonts.add(font);
-        console.log("Pixel font loaded!");
-
-        world.resetToMenu();
-        requestAnimationFrame(loop); // start loop
-    };
-
-    function onTapEvent(e) {
-        e.preventDefault();
-        world.onTap();
-    }
-    canvas.addEventListener('mousedown', onTapEvent); // desktop
-    canvas.addEventListener('touchstart', onTapEvent, { passive: false }); // mobile
-
-    // ---
-
-
-    // --- Canvas Size ---
-
-    const GAME_WIDTH = 320;
-    const GAME_HEIGHT = 480 + 64;
-    const GAME_ASPECT = GAME_WIDTH / GAME_HEIGHT; // твои оригинальные размеры
-
-    function resizeCanvas() {
-        let iw = window.innerWidth;
-        let ih = window.innerHeight;
-
-        // real proportion
-        let winAspect = iw / ih;
-
-        if (winAspect > GAME_ASPECT) {
-            // экран слишком широкий
-            iw = ih * GAME_ASPECT;
-        } else {
-            // экран слишком высокий
-            ih = iw / GAME_ASPECT;
         }
 
-        canvas.style.width = iw + "px";
-        canvas.style.height = ih + "px";
-    }
+        menuButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            showLeaderboardOverlay();
+            await loadLeaderboard();      
+        });
 
-    window.addEventListener("resize", resizeCanvas);
+        changeNameButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.setItem(NICK_KEY, '');
+            localStorage.setItem('flappy_highscore', '0');
+            localStorage.setItem('flappy_coins', '0');
+            world.resetFromStorage();
+            showNameOverlay();
+        });
 
-    resizeCanvas();
 
-    // ---
-
+        async function submitHighscore(score) {
+            try {
+                await fetch('/api/score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        nickname: playerName, // тот, что из localStorage
+                        score: score,
+                    }),
+                });
+            } catch (e) {
+                console.error('Submit highscore error', e);
+            }
+        }
 
     </script>
 </body>

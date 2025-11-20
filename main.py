@@ -65,6 +65,7 @@ async def create_score(request: Request):
         nickname = str(nickname).strip()
         if not nickname: # empty string
             raise HTTPException(400, "Incorrect 'nickname' field")
+        nickname = nickname.lower()
 
         try:
             score = int(score)
@@ -74,31 +75,42 @@ async def create_score(request: Request):
             raise HTTPException(status_code=400, detail="Incorrect 'score' field, must be >= 0")
 
         try:
-            existing = (supabaseDB
-                .table("score")
+            existing = (supabaseDB.table("score")
                 .select("*")
                 .eq("nickname", nickname)
-                .eq("score", score)
+                # .eq("score", score)
                 .execute())
         except Exception as e:
             print("Supabase error:", repr(e))
             raise HTTPException(status_code=500, detail="(POST '/api/score') Database select error")
 
-        if existing.data:
-            raise HTTPException(status_code=400, detail="Record with this nickname and score already exists")
+        if not existing.data:
+            print("not existing.data")
+            try:
+                result = supabaseDB.table("score").insert({"nickname": nickname, "score": score}).execute()
+            except Exception as e:
+                print("Supabase error:", repr(e))
+                raise HTTPException(status_code=500, detail="(POST '/api/score') Database insert error")
 
-        record = { "nickname": nickname, "score": score }
+        else:
+            print("existing.data")
+            if existing.data[0]["score"] >= score:
+                raise HTTPException(status_code=400, detail="Score is less than last highscore")
 
-        try:
-            result = supabaseDB.table("score").insert(record).execute()
-        except Exception as e:
-            print("Supabase error:", repr(e))
-            raise HTTPException(status_code=500, detail="(POST '/api/score') Database insert error")
+            try:
+                result = (supabaseDB.table("score")
+                            .update({"score": score})
+                            .eq("id", existing.data[0]["id"])
+                            .execute())
+            except Exception as e:
+                print("Supabase error:", repr(e))
+                raise HTTPException(status_code=500, detail="(POST '/api/score') Database update error")
 
         if not result.data:
             raise HTTPException(status_code=500, detail="insert returned no data")
 
         return { "data": result.data }
+
     except Exception as e:
         print("POST '/api/score' Error: ", repr(e))
         raise
