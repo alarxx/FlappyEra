@@ -197,9 +197,10 @@ import time
 import urllib.request
 import asyncio
 
+ping_url = os.environ.get("PING_URL")
+
 def do_request():
-    url = "https://pingpong-49a3.onrender.com/"
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(ping_url) as response:
         status = response.status
         data = response.read().decode("utf-8")
         print(f"[OK] {status}: {data[:60]}...")
