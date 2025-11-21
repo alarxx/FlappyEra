@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Sparks</title>
+</head>
+<body>
+    <h1>Click</h1>
+
+    <script>
+        // --- Explosions ---
+
+        const rand = (min, max) => Math.floor(Math.random() * (max - min) + min);
+
+        function randomColor(){
+            let a = rand(0, 3);
+            if(a == 0)
+                a = "#00cc66";
+            else if(a == 1)
+                a = "#B5B5B5";
+            else
+                a = "#ff0033";
+            return a;
+        }
+
+        class Vector {
+            #x;
+            #y;
+            constructor(x, y){
+                this.#x = x;
+                this.#y = y;
+            }
+            x(){ return this.#x; }
+            y(){ return this.#y; }
+
+            setX(x){ this.#x = x; }
+            setY(y){ this.#y = y; }
+
+            addX(x){ this.#x += x; }
+            addY(y){ this.#y += y; }
+        }
+
+
+        class Spark {
+            #width;
+            #height;
+            #acc;
+            #position;
+            #velocity;
+            #ob;
+            #inMotion;
+            #timer;
+
+            constructor(x, y){
+                this.#width = rand(3, 5);
+                this.#height = this.#width;
+
+                this.#acc = new Vector(0, 1000);
+                this.#position = new Vector(x, y);
+                this.#velocity = new Vector(rand(-500, 500), rand(-500, -300));
+
+                this.#ob = this.#createObj();
+
+                this.#inMotion = true;
+
+                this.#timer = this.#setTimer();
+            }
+
+            #createObj(){
+                let ob = document.createElement("div");
+                document.body.appendChild(ob);
+                ob.style.backgroundColor = randomColor();
+
+                ob.style.position = "absolute";
+
+                ob.style.left = `${this.#position.x()}px`
+                ob.style.top = `${this.#position.y()}px`
+
+                ob.style.width = `${this.#width}px`;
+                ob.style.height = `${this.#height}px`;
+
+                return ob;
+            }
+
+            #setTimer(){
+                const ob = this;
+                //fps
+                // milliseconds: 10^-3 = 1/1000
+                const dt = 15; // 1000/15=67fps
+                const start = Date.now(); // запомнить время начала
+                let last = Date.now();
+                const timer = setInterval(function() {
+                    // сколько времени прошло с начала анимации?
+                    // Закончить анимацию через 0.5, 3 секунды
+                    if (Date.now() - start >= 10000) {
+                        ob.delete();
+                        return;
+                    }
+                    ob.update((Date.now() - last) / 1000); // magical numbers
+                    last = Date.now();
+                }, dt);
+                return timer;
+            }
+
+            update(dt){
+                if(this.#inMotion){
+                    this.updateVel(dt);
+                    this.updatePos(dt);
+                }
+            }
+
+            // updatePos(dt){
+            //     this.#position.addX(dt * this.#velocity.x());
+            //     this.#position.addY(dt * this.#velocity.y());
+            //
+            //     this.#ob.style.left = `${this.#position.x()}px`;
+            //     this.#ob.style.top = `${this.#position.y()}px`;
+            // }
+            updatePos(dt){
+                // Move
+                this.#position.addX(dt * this.#velocity.x());
+                this.#position.addY(dt * this.#velocity.y());
+
+                const x = this.#position.x();
+                const y = this.#position.y();
+
+                const w = this.#width;
+                const h = this.#height;
+
+                const maxX = window.innerWidth - w - 1;
+                const maxY = window.innerHeight - h - 1;
+
+                if (x <= 0 || x >= maxX) {
+                    this.#velocity.setX(0);
+                    this.#position.setX(Math.max(0, Math.min(x, maxX)));
+                }
+                if (y <= 0 || y >= maxY) {
+                    this.#velocity.setY(0);
+                    this.#position.setY(Math.max(0, Math.min(y, maxY)));
+
+                }
+                if (y >= maxY){
+                    // console.log("ground touched" + Date.now());
+                    this.#velocity.addX(-10 * dt * this.#velocity.x());
+                    if(this.#velocity.x() >= -1 && this.#velocity.x() <= 1){
+                        // console.log("stopped" + Date.now());
+                        this.#velocity.setX(0);
+                        this.#inMotion = false;
+                    }
+                }
+
+                this.#ob.style.left = `${this.#position.x()}px`;
+                this.#ob.style.top = `${this.#position.y()}px`;
+            }
+
+
+            updateVel(dt){
+                this.#velocity.addX(dt * this.#acc.x());
+                this.#velocity.addY(dt * this.#acc.y());
+            }
+
+            delete(){
+                clearInterval(this.#timer);
+                this.#ob.remove(); // delete from DOM, so it is invisible
+                // here if if was deleted by #setTimer function, it is still exist in Explosion list
+            }
+
+            window_resized(){
+                this.#inMotion = true;
+            }
+        }
+
+
+        class Explosion{
+            #sparks;
+
+            constructor(x, y){
+                let n = rand(20, 30);
+                this.#sparks = [];
+                for(let i=0; i<n; i++){
+                    this.#sparks[i] = new Spark(x, y);
+                }
+            }
+
+            update(dt){
+                for(let i=0; i<this.#sparks.length; i++){
+                    this.#sparks[i].update(dt);
+                }
+            }
+
+            delete(){
+                for(let i=0; i<this.#sparks.length; i++){
+                    this.#sparks[i].delete();
+                }
+            }
+
+            window_resized(){
+                for(let i=0; i<this.#sparks.length; i++){
+                    this.#sparks[i].window_resized();
+                }
+            }
+        }
+
+        class ExplosionsPool {
+            #pool;
+            #length;
+
+            constructor(){
+                this.#length = 20;
+                this.#pool = [];
+            }
+
+            // add Explosion
+            explode(x, y){
+                const obj = new Explosion(x, y);
+
+                if(this.#pool.length === this.#length){
+                    const removed_item = this.#pool.shift();
+                    removed_item.delete();
+                }
+
+                this.#pool.push(obj);
+            }
+
+            window_resized(){
+                for(let i = 0; i < this.#pool.length; i++){
+                    this.#pool[i].window_resized();
+                }
+            }
+        }
+
+
+
+        function soundPlay(dir) {
+            try{
+                let audio = new Audio();
+                audio.src = dir;
+                audio.play();
+            } catch(e){
+
+            }
+        }
+
+        function setClickListener(soundDir){
+            const pool = new ExplosionsPool();
+            window.addEventListener("mousedown", (e)=>{
+                let x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+                let y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+                pool.explode(x, y);
+                // soundPlay(soundDir);
+            });
+            window.addEventListener('resize', () => {
+                pool.window_resized();
+            });
+        }
+        setClickListener();
+
+    </script>
+</body>
+</html>

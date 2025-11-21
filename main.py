@@ -183,3 +183,36 @@ async def get_scores(
         raise
 
 # --- ---
+
+
+# --- Click HTML to PING ---
+
+@app.get("/click", response_class=FileResponse)
+async def read_index():
+    return FileResponse("click.html")
+
+# --- PING ---
+
+import time
+import urllib.request
+import asyncio
+
+def do_request():
+    url = "https://pingpong-49a3.onrender.com/"
+    with urllib.request.urlopen(url) as response:
+        status = response.status
+        data = response.read().decode("utf-8")
+        print(f"[OK] {status}: {data[:60]}...")
+
+async def ping_api_every_minute():
+    while True:
+        try:
+            await asyncio.to_thread(do_request)
+        except Exception as e:
+            print(f"[ERROR] {e}")
+        await asyncio.sleep(2 * 60)
+
+# Startup event
+@app.on_event("startup")
+async def start_background_tasks():
+    asyncio.create_task(ping_api_every_minute())
